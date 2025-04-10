@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Estoque Diário - Integração com Sheets</title>
+  <title>Controle de Estoque Diário - CSV</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -17,9 +17,7 @@
       border-radius: 6px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h2 {
-      color: #333;
-    }
+    h2 { color: #333; }
     label {
       font-weight: bold;
       display: block;
@@ -42,10 +40,10 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    button:hover {
-      background: #0056b3;
-    }
+    button:hover { background: #0056b3; }
   </style>
+  <!-- Inclui a biblioteca PapaParse via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -57,59 +55,55 @@
     </select>
     
     <label for="produto">Produto:</label>
-    <select id="produto" onchange="atualizarEstoque()">
+    <select id="produto" onchange="updateEstoque()">
       <option value="">Selecione uma categoria primeiro</option>
     </select>
     
-    <label for="quantidade">Quantidade no estoque:</label>
-    <input type="number" id="quantidade" placeholder="Digite a quantidade">
+    <label for="estoque">Estoque:</label>
+    <input type="number" id="estoque" placeholder="Digite o estoque">
     
     <button onclick="enviar()">Salvar</button>
   </div>
   
   <script>
-    // ID da sua planilha (publicada na web)
-    // Usaremos o link publicado: 
-    // https://docs.google.com/spreadsheets/d/e/2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF/pubhtml
-    // O feed JSON utiliza o mesmo ID (aqui, o ID é extraído do URL publicado)
-    const sheetId = "2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF";
-    // URL para obter os dados da planilha como JSON (feed antigo)
-    const url = `https://spreadsheets.google.com/feeds/list/${sheetId}/od6/public/values?alt=json`;
-
-    // Objeto que armazenará os produtos agrupados por categoria.
-    // Aqui, cada categoria é associada a um array de objetos: { descricao, estoque }
+    // URL do CSV publicado da sua planilha
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF/pub?output=csv";
+    
+    // Objeto para armazenar os produtos agrupados por categoria.
+    // Cada categoria conterá um array de objetos: { descricao, estoque }
     let produtosPorCategoria = {};
-
-    async function loadData() {
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        const entries = data.feed.entry;
-        // Reinicia o objeto
-        produtosPorCategoria = {};
-        entries.forEach(entry => {
-          // Use os nomes das chaves conforme os cabeçalhos da sua planilha.
-          // Se os cabeçalhos da planilha são "Categoria", "Descrição" e "Estoque",
-          // os valores no JSON devem estar em "gsx$categoria", "gsx$descrição" e "gsx$estoque".
-          const categoria = entry["gsx$categoria"] ? entry["gsx$categoria"].$t.trim() : "";
-          // Tente usar "gsx$descrição"; se não existir, use "gsx$descricao"
-          const descricao = entry["gsx$descrição"] ? entry["gsx$descrição"].$t.trim() : (entry["gsx$descricao"] ? entry["gsx$descricao"].$t.trim() : "");
-          const estoque = entry["gsx$estoque"] ? entry["gsx$estoque"].$t.trim() : "";
-          if (categoria && descricao) {
-            if (!produtosPorCategoria[categoria]) {
-              produtosPorCategoria[categoria] = [];
+    
+    // Função para carregar e processar o CSV usando PapaParse
+    function loadCSV() {
+      Papa.parse(csvUrl, {
+        download: true,
+        header: true, // Usa a primeira linha como cabeçalho
+        complete: function(results) {
+          // Reinicia o objeto
+          produtosPorCategoria = {};
+          results.data.forEach(row => {
+            // Extraia os dados usando os cabeçalhos da planilha.
+            // Certifique-se de que sua planilha possua as colunas "Categoria", "Descrição" e "Estoque".
+            const categoria = row["Categoria"] ? row["Categoria"].trim() : "";
+            const descricao = row["Descrição"] ? row["Descrição"].trim() : "";
+            const estoque = row["Estoque"] ? row["Estoque"].trim() : "";
+            if (categoria && descricao) {
+              if (!produtosPorCategoria[categoria]) {
+                produtosPorCategoria[categoria] = [];
+              }
+              produtosPorCategoria[categoria].push({ descricao, estoque });
             }
-            produtosPorCategoria[categoria].push({ descricao, estoque });
-          }
-        });
-        populateCategories();
-      } catch (error) {
-        console.error("Erro ao carregar os dados da planilha:", error);
-        alert("Erro ao carregar os dados. Verifique o console para mais detalhes.");
-      }
+          });
+          populateCategories();
+        },
+        error: function(err) {
+          console.error("Erro ao carregar CSV:", err);
+          alert("Erro ao carregar os dados CSV. Verifique o console.");
+        }
+      });
     }
-
-    // Preenche o select de categorias com as chaves do objeto
+    
+    // Preenche o select de categorias com os nomes das categorias extraídos do CSV
     function populateCategories() {
       const selectCategoria = document.getElementById("categoria");
       selectCategoria.innerHTML = "<option value=''>Selecione...</option>";
@@ -119,21 +113,20 @@
         option.textContent = categoria;
         selectCategoria.appendChild(option);
       });
-      updateProducts();
+      updateProducts(); // Atualiza os produtos se já houver categoria selecionada
     }
-
-    // Atualiza o select de produtos com base na categoria selecionada,
-    // e inclui em cada opção o valor de "estoque" como um atributo de dados.
+    
+    // Atualiza o select de produtos conforme a categoria selecionada
     function updateProducts() {
       const categoria = document.getElementById("categoria").value;
       const selectProduto = document.getElementById("produto");
-      selectProduto.innerHTML = "";  // Limpa as opções existentes
+      selectProduto.innerHTML = ""; // Limpa as opções existentes
       if (categoria && produtosPorCategoria[categoria]) {
         produtosPorCategoria[categoria].forEach(item => {
           const option = document.createElement("option");
           option.value = item.descricao;
           option.textContent = item.descricao;
-          // Armazena o valor atual de estoque neste atributo de dados
+          // Armazena o valor do estoque como atributo de dados para uso posterior
           option.dataset.estoque = item.estoque;
           selectProduto.appendChild(option);
         });
@@ -141,34 +134,66 @@
         selectProduto.innerHTML = "<option value=''>Selecione uma categoria primeiro</option>";
       }
     }
-
-    // Ao selecionar um produto, atualiza automaticamente o campo de quantidade com o estoque do produto
-    function atualizarEstoque() {
+    
+    // Atualiza automaticamente o campo "Estoque" com o valor associado ao produto selecionado
+    function updateEstoque() {
       const selectProduto = document.getElementById("produto");
-      const quantidadeInput = document.getElementById("quantidade");
+      const estoqueInput = document.getElementById("estoque");
       const selectedOption = selectProduto.options[selectProduto.selectedIndex];
       if (selectedOption && selectedOption.dataset.estoque) {
-        quantidadeInput.value = selectedOption.dataset.estoque;
+        estoqueInput.value = selectedOption.dataset.estoque;
       } else {
-        quantidadeInput.value = "";
+        estoqueInput.value = "";
       }
     }
-
-    // Função para "enviar" os dados – neste exemplo, exibe um alerta.
-    // Aqui você pode integrar com um backend ou salvar os dados em outra planilha.
+    
+    // Função para enviar os dados para o seu Web App do Google Apps Script
     function enviar() {
       const categoria = document.getElementById("categoria").value;
       const produto = document.getElementById("produto").value;
-      const quantidade = document.getElementById("quantidade").value;
-      if (!categoria || !produto || !quantidade) {
+      const estoque = document.getElementById("estoque").value;
+      
+      if (!categoria || !produto || !estoque) {
         alert("Por favor, preencha todos os campos.");
         return;
       }
-      alert(`Dados salvos:\nCategoria: ${categoria}\nProduto: ${produto}\nQuantidade: ${quantidade}`);
+      
+      // Cria um objeto com os dados, incluindo a data atual
+      const data = {
+        data: new Date().toLocaleDateString("pt-BR"),
+        categoria: categoria,
+        produto: produto,
+        estoque: estoque
+      };
+      
+      // URL do seu Web App do Google Apps Script
+      // Substitua "YOUR_WEB_APP_URL" pela URL real obtida no Apps Script
+      const endpoint = "https://script.google.com/macros/s/AKfycbzq4OQC3gzcBXITizsU-owEU7yWDKBmhJhD9Aw-228nGcNpsRBPAJ8S-KzRBEJYJHnW/exec";
+      
+      fetch(endpoint, {
+        method: "POST",
+        mode: "cors",  // Certifique-se de que o Apps Script está configurado para permitir CORS
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.result === "success") {
+          alert("Dados salvos com sucesso no Google Sheets!");
+        } else {
+          alert("Erro ao salvar os dados: " + result.error);
+        }
+      })
+      .catch(err => {
+        console.error("Erro:", err);
+        alert("Erro de conexão. Verifique o console.");
+      });
     }
-
-    // Carrega os dados da planilha quando a página é carregada
-    window.onload = loadData;
+    
+    // Carrega o CSV assim que a página for carregada
+    window.onload = loadCSV;
   </script>
 </body>
 </html>
