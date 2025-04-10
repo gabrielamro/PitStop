@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Estoque Diário - Integração com Sheets</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #333;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    select, input {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0 15px 0;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      background: #007BFF;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Controle de Estoque Diário</h2>
+    
+    <label for="categoria">Categoria:</label>
+    <select id="categoria" onchange="updateProducts()">
+      <option value="">Carregando categorias...</option>
+    </select>
+    
+    <label for="produto">Produto:</label>
+    <select id="produto" onchange="atualizarEstoque()">
+      <option value="">Selecione uma categoria primeiro</option>
+    </select>
+    
+    <label for="quantidade">Quantidade no estoque:</label>
+    <input type="number" id="quantidade" placeholder="Digite a quantidade">
+    
+    <button onclick="enviar()">Salvar</button>
+  </div>
+  
+  <script>
+    // ID da sua planilha (publicada na web)
+    // Usaremos o link publicado: 
+    // https://docs.google.com/spreadsheets/d/e/2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF/pubhtml
+    // O feed JSON utiliza o mesmo ID (aqui, o ID é extraído do URL publicado)
+    const sheetId = "2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF";
+    // URL para obter os dados da planilha como JSON (feed antigo)
+    const url = `https://spreadsheets.google.com/feeds/list/${sheetId}/od6/public/values?alt=json`;
+
+    // Objeto que armazenará os produtos agrupados por categoria.
+    // Aqui, cada categoria é associada a um array de objetos: { descricao, estoque }
+    let produtosPorCategoria = {};
+
+    async function loadData() {
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const entries = data.feed.entry;
+        // Reinicia o objeto
+        produtosPorCategoria = {};
+        entries.forEach(entry => {
+          // Use os nomes das chaves conforme os cabeçalhos da sua planilha.
+          // Se os cabeçalhos da planilha são "Categoria", "Descrição" e "Estoque",
+          // os valores no JSON devem estar em "gsx$categoria", "gsx$descrição" e "gsx$estoque".
+          const categoria = entry["gsx$categoria"] ? entry["gsx$categoria"].$t.trim() : "";
+          // Tente usar "gsx$descrição"; se não existir, use "gsx$descricao"
+          const descricao = entry["gsx$descrição"] ? entry["gsx$descrição"].$t.trim() : (entry["gsx$descricao"] ? entry["gsx$descricao"].$t.trim() : "");
+          const estoque = entry["gsx$estoque"] ? entry["gsx$estoque"].$t.trim() : "";
+          if (categoria && descricao) {
+            if (!produtosPorCategoria[categoria]) {
+              produtosPorCategoria[categoria] = [];
+            }
+            produtosPorCategoria[categoria].push({ descricao, estoque });
+          }
+        });
+        populateCategories();
+      } catch (error) {
+        console.error("Erro ao carregar os dados da planilha:", error);
+        alert("Erro ao carregar os dados. Verifique o console para mais detalhes.");
+      }
+    }
+
+    // Preenche o select de categorias com as chaves do objeto
+    function populateCategories() {
+      const selectCategoria = document.getElementById("categoria");
+      selectCategoria.innerHTML = "<option value=''>Selecione...</option>";
+      Object.keys(produtosPorCategoria).sort().forEach(categoria => {
+        const option = document.createElement("option");
+        option.value = categoria;
+        option.textContent = categoria;
+        selectCategoria.appendChild(option);
+      });
+      updateProducts();
+    }
+
+    // Atualiza o select de produtos com base na categoria selecionada,
+    // e inclui em cada opção o valor de "estoque" como um atributo de dados.
+    function updateProducts() {
+      const categoria = document.getElementById("categoria").value;
+      const selectProduto = document.getElementById("produto");
+      selectProduto.innerHTML = "";  // Limpa as opções existentes
+      if (categoria && produtosPorCategoria[categoria]) {
+        produtosPorCategoria[categoria].forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.descricao;
+          option.textContent = item.descricao;
+          // Armazena o valor atual de estoque neste atributo de dados
+          option.dataset.estoque = item.estoque;
+          selectProduto.appendChild(option);
+        });
+      } else {
+        selectProduto.innerHTML = "<option value=''>Selecione uma categoria primeiro</option>";
+      }
+    }
+
+    // Ao selecionar um produto, atualiza automaticamente o campo de quantidade com o estoque do produto
+    function atualizarEstoque() {
+      const selectProduto = document.getElementById("produto");
+      const quantidadeInput = document.getElementById("quantidade");
+      const selectedOption = selectProduto.options[selectProduto.selectedIndex];
+      if (selectedOption && selectedOption.dataset.estoque) {
+        quantidadeInput.value = selectedOption.dataset.estoque;
+      } else {
+        quantidadeInput.value = "";
+      }
+    }
+
+    // Função para "enviar" os dados – neste exemplo, exibe um alerta.
+    // Aqui você pode integrar com um backend ou salvar os dados em outra planilha.
+    function enviar() {
+      const categoria = document.getElementById("categoria").value;
+      const produto = document.getElementById("produto").value;
+      const quantidade = document.getElementById("quantidade").value;
+      if (!categoria || !produto || !quantidade) {
+        alert("Por favor, preencha todos os campos.");
+        return;
+      }
+      alert(`Dados salvos:\nCategoria: ${categoria}\nProduto: ${produto}\nQuantidade: ${quantidade}`);
+    }
+
+    // Carrega os dados da planilha quando a página é carregada
+    window.onload = loadData;
+  </script>
+</body>
+</html>
