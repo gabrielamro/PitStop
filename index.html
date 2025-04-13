@@ -1,210 +1,57 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Estoque Diário - CSV</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 6px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h2 {
-      color: #333;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 10px;
-    }
-    select, input {
-      width: 100%;
-      padding: 10px;
-      margin: 5px 0 15px 0;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {m
-      padding: 10px 20px;
-      font-size: 18px;
-      border: none;
-      background: #007BFF;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-  </style>
-  <!-- Incluir a biblioteca PapaParse via CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <title>Controle de Estoque - Pitstop</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <div class="container">
-    <h2>Controle de Estoque Diário</h2>
-    
-    <label for="categoria">Categoria:</label>
-    <select id="categoria" onchange="updateProducts()">
-      <option value="">Carregando categorias...</option>
-    </select>
-    
-    <label for="produto">Produto:</label>
-    <select id="produto" onchange="updateEstoque()">
-      <option value="">Selecione uma categoria primeiro</option>
-    </select>
-    
-    <label for="estoque">Estoque:</label>
-    <input type="number" id="estoque" placeholder="Digite o estoque">
-    
-    <button onclick="enviar()">Salvar</button>
+  <div class="sidebar" id="sidebar">
+    <div class="toggle-btn" onclick="toggleSidebar()">☰</div>
+    <h2>Pitstop</h2>
+    <ul>
+      <li onclick="mostrarSecao('registro" type="number" value="0" class="input-estoque">>📦 <span>Registrar Estoque</span></li>
+      <li onclick="mostrarSecao('comparar" type="number" value="0" class="input-estoque">>📊 <span>Comparar Estoque</span></li>
+    </ul>
   </div>
-  
-  <script>
-    // URL do CSV publicado da sua planilha
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrN2g-b9pNdnqZrJKWc6kI-EMEA5U-VAzIbk81mcXgzqUCZyehyEKFWzwZI9R35F_wt0AX3zTfK6DF/pub?output=csv";
-    
-    // Objeto que armazenará os produtos agrupados por categoria.
-    // Para cada categoria, temos um array de objetos: { descricao, estoque }
-    let produtosPorCategoria = {};
-    
-    // Função para carregar e processar o CSV usando PapaParse
-    function loadCSV() {
-      Papa.parse(csvUrl, {
-        download: true,
-        header: true,  // A primeira linha do CSV será usada como cabeçalho
-        complete: function(results) {
-          // Reinicia o objeto
-          produtosPorCategoria = {};
-          results.data.forEach(row => {
-            // Extraímos os dados das colunas "Categoria", "Descrição" e "Estoque"
-            const categoria = row["Categoria"] ? row["Categoria"].trim() : "";
-            const descricao = row["Descrição"] ? row["Descrição"].trim() : "";
-            const estoque = row["Estoque"] ? row["Estoque"].trim() : "";
-            if (categoria && descricao) {
-              if (!produtosPorCategoria[categoria]) {
-                produtosPorCategoria[categoria] = [];
-              }
-              produtosPorCategoria[categoria].push({ descricao, estoque });
-            }
-          });
-          populateCategories();
-        },
-        error: function(err) {
-          console.error("Erro ao carregar CSV:", err);
-          alert("Erro ao carregar os dados CSV. Verifique o console.");
-        }
-      });
-    }
-    
-    // Preenche o select de categorias com os nomes do objeto
-    function populateCategories() {
-      const selectCategoria = document.getElementById("categoria");
-      selectCategoria.innerHTML = "<option value=''>Selecione...</option>";
-      Object.keys(produtosPorCategoria).sort().forEach(categoria => {
-        const option = document.createElement("option");
-        option.value = categoria;
-        option.textContent = categoria;
-        selectCategoria.appendChild(option);
-      });
-      updateProducts();
-    }
-    
-    // Atualiza o select de produtos conforme a categoria selecionada
-    function updateProducts() {
-      const categoria = document.getElementById("categoria").value;
-      const selectProduto = document.getElementById("produto");
-      selectProduto.innerHTML = "";  // Limpa as opções existentes
-      if (categoria && produtosPorCategoria[categoria]) {
-        produtosPorCategoria[categoria].forEach(item => {
-          const option = document.createElement("option");
-          option.value = item.descricao;
-          option.textContent = item.descricao;
-          // Armazena o estoque atual como atributo de dados para uso posterior
-          option.dataset.estoque = item.estoque;
-          selectProduto.appendChild(option);
-        });
-      } else {
-        selectProduto.innerHTML = "<option value=''>Selecione uma categoria primeiro</option>";
-      }
-    }
-    
-    // Atualiza automaticamente o campo "Estoque" com o valor associado ao produto selecionado
-    function updateEstoque() {
-      const selectProduto = document.getElementById("produto");
-      const estoqueInput = document.getElementById("estoque");
-      const selectedOption = selectProduto.options[selectProduto.selectedIndex];
-      if (selectedOption && selectedOption.dataset.estoque) {
-        estoqueInput.value = selectedOption.dataset.estoque;
-      } else {
-        estoqueInput.value = "";
-      }
-    }
-    
-    // Função para "enviar" os dados (no exemplo, apenas exibe um alerta)
-    function enviar() {
-      const categoria = document.getElementById("categoria").value;
-      const produto = document.getElementById("produto").value;
-      const estoque = document.getElementById("estoque").value;
-      if (!categoria || !produto || !estoque) {
-        alert("Por favor, preencha todos os campos.");
-        return;
-      }
-      alert(`Dados salvos:\nCategoria: ${categoria}\nProduto: ${produto}\nEstoque: ${estoque}`);
-      // Aqui você pode integrar a lógica para enviar os dados para um backend ou atualizar outra planilha.
-    }
-    
-    // Carrega os dados da planilha (CSV) assim que a página for carregada
-    window.onload = loadCSV;
-  </script>
+
+  <div class="main-content">
+    <div class="data-container"><small>Data atual: 2025-04-12</small></div>
+
+    <div class="container" id="registro">
+      <h1>Registro Diário de Estoque</h1>
+    <button onclick="testarConexao()" class="btn-teste">🔌 Testar Conexão com Supabase</button>
+      <label for="categoria">Selecione a Categoria:</label>
+      <select id="categoria" onchange="filtrarProdutos()">
+        <option value="">-- Selecione --</option>
+        <option value="4 - Cervejas LONGNECK">Cervejas LONGNECK</option>
+        <option value="5 - REFRIGERANTES">Refrigerantes</option>
+        <option value="9- ENERGÉTICOS LATA">Energéticos</option>
+      </select>
+      <div id="produtos-lista"></div>
+    </div>
+
+    <div class="container" id="comparar" style="display:none">
+      <h1>Comparar Estoque dos Últimos 5 Dias</h1>
+      <label for="produto-comp">Digite o nome do produto:</label>
+      <input type="text" id="produto-comp" placeholder="Ex: RedBull">
+      <button onclick="carregarComparacao()">Comparar</button>
+
+      <table id="tabelaComparacao">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Estoque</th>
+            <th>Vendido</th>
+          ')">Salvar</button></td></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
-
-<script>
-  // ... (o restante do seu código permanece igual)
-
-  function enviar() {
-    const categoria = document.getElementById("categoria").value;
-    const produto = document.getElementById("produto").value;
-    const estoque = document.getElementById("estoque").value;
-    
-    if (!categoria || !produto || !estoque) {
-      alert("Por favor, preencha todos os campos.");
-      return;
-    }
-    
-    // Cria o objeto com os dados (incluindo a data de hoje, por exemplo)
-    const data = {
-      data: new Date().toLocaleDateString("pt-BR"),
-      categoria: categoria,
-      produto: produto,
-      estoque: estoque
-    };
-    
-    // URL do seu Web App (substitua pelo endpoint real que você obteve)
-    const endpoint = "https://script.google.com/macros/s/AKfycbx6VYy75QzjODBOjTeuOwq8CMYlZQqMmxY773VrzIwo5dpULsxGPVexecPhMF-UwCvC/exec";
-    
-  fetch("https://script.google.com/macros/s/AKfycbx6VYy75QzjODBOjTeuOwq8CMYlZQqMmxY773VrzIwo5dpULsxGPVexecPhMF-UwCvC/exec", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ produto: "X", estoque: 123 })
-})
-.then(res => res.json())
-.then(r => console.log(r))
-.catch(err => console.error(err));
-  }
-
-  // ... (o restante do seu código)
-</script>
-
