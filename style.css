@@ -305,6 +305,8 @@ h1 {
 .table-container {
   overflow-x: auto;
   margin-top: 1rem;
+  max-height: 500px; /* Limita a altura para rolagem vertical */
+  position: relative;
 }
 
 .table {
@@ -433,34 +435,72 @@ h1 {
     width: 280px;
   }
 
+  /* Transformar tabelas em cartões */
+  .table-container {
+    overflow-x: hidden; /* Remove rolagem horizontal */
+    max-height: none; /* Remove limite de altura */
+  }
+
   .table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+    background: none;
   }
 
-  .table th,
+  .table thead {
+    display: none; /* Oculta cabeçalhos */
+  }
+
+  .table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .table tr {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+  }
+
+  .table tr:hover {
+    background: var(--card-bg);
+  }
+
   .table td {
-    min-width: 100px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: none;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
   }
 
-  .table th:first-child,
-  .table td:first-child {
-    min-width: 60px;
+  .table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text);
+    width: 50%;
   }
 
-  .table th:nth-child(2),
-  .table td:nth-child(2) {
-    min-width: 150px;
+  .table td:last-child {
+    justify-content: center;
   }
 
   .input-estoque {
-    max-width: 80px;
+    max-width: 120px;
   }
 
   .btn-action {
-    padding: 0.5rem;
-    font-size: 0.85rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    width: 100%;
+    max-width: 200px;
   }
 
   h1 {
@@ -491,5 +531,18 @@ h1 {
   .btn-test {
     width: 100%;
     justify-content: center;
+  }
+
+  .table td {
+    font-size: 0.85rem;
+  }
+
+  .input-estoque {
+    max-width: 100px;
+  }
+
+  .btn-action {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
   }
 }

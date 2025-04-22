@@ -66,10 +66,10 @@ async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
       movimentacoes.forEach(item => {
         html += `
           <tr>
-            <td>${item.id_produto}</td>
-            <td>${item.quantidade}</td>
-            <td>${item.descricao}</td>
-            <td>${new Date(item.created_at).toLocaleDateString('pt-BR')}</td>
+            <td data-label="ID Produto">${item.id_produto}</td>
+            <td data-label="Quantidade Informada">${item.quantidade}</td>
+            <td data-label="Descrição">${item.descricao}</td>
+            <td data-label="Data">${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
           </tr>`;
       });
     }
@@ -152,11 +152,11 @@ async function carregarProdutosPorCategoria(categoria) {
       produtos.forEach(produto => {
         html += `
           <tr>
-            <td>${produto.id}</td>
-            <td>${produto.nome}</td>
-            <td>${produto.quantidade}</td>
-            <td><input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0" placeholder="Nova quantidade"></td>
-            <td>
+            <td data-label="ID">${produto.id}</td>
+            <td data-label="Produto">${produto.nome}</td>
+            <td data-label="Quantidade Atual">${produto.quantidade}</td>
+            <td data-label="Nova Quantidade"><input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0" placeholder="Nova quantidade"></td>
+            <td data-label="Ação">
               <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, document.getElementById('quantidade-${produto.id}').value, 'Atualização manual')">Atualizar</button>
             </td>
           </tr>`;
@@ -221,15 +221,14 @@ async function carregarComparacao() {
   try {
     document.getElementById('resultado-comparacao').innerHTML = '<p class="loading">Carregando comparação...</p>';
 
-    // Definir o intervalo de tempo: início e fim do dia selecionado
     const dataInicio = `${dataComparacao}T00:00:00`;
     const dataFim = `${dataComparacao}T23:59:59`;
 
     const { data: movimentacoes, error } = await db
       .from('movimentacoes_estoque')
       .select('id_produto, quantidade, descricao, created_at')
-      .gte('created_at', dataInicio) // Maior ou igual ao início do dia
-      .lte('created_at', dataFim);   // Menor ou igual ao fim do dia
+      .gte('created_at', dataInicio)
+      .lte('created_at', dataFim);
 
     if (error) throw error;
 
@@ -251,10 +250,10 @@ async function carregarComparacao() {
       movimentacoes.forEach(item => {
         html += `
           <tr>
-            <td>${item.id_produto}</td>
-            <td>${item.quantidade}</td>
-            <td>${item.descricao}</td>
-            <td>${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
+            <td data-label="ID Produto">${item.id_produto}</td>
+            <td data-label="Quantidade">${item.quantidade}</td>
+            <td data-label="Descrição">${item.descricao}</td>
+            <td data-label="Data">${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
           </tr>`;
       });
       html += '</tbody></table>';
@@ -363,14 +362,14 @@ async function carregarComparacaoTresDias() {
         if (vendidoDia2to1 > 0) totalVendidoDia2to1 += vendidoDia2to1;
         html += `
           <tr>
-            <td>${prod.id}</td>
-            <td>${prod.nome}</td>
-            <td>${prod.categoria}</td>
-            <td>${prod.quantidadeDia3}</td>
-            <td>${prod.quantidadeDia2}</td>
-            <td class="${vendidoDia3to2 > 0 ? 'sales-positive' : ''}">${vendidoDia3to2 >= 0 ? vendidoDia3to2 : 'N/A'}</td>
-            <td>${prod.quantidadeDia1}</td>
-            <td class="${vendidoDia2to1 > 0 ? 'sales-positive' : ''}">${vendidoDia2to1 >= 0 ? vendidoDia2to1 : 'N/A'}</td>
+            <td data-label="ID">${prod.id}</td>
+            <td data-label="Produto">${prod.nome}</td>
+            <td data-label="Categoria">${prod.categoria}</td>
+            <td data-label="Estoque ${dataDia3}">${prod.quantidadeDia3}</td>
+            <td data-label="Estoque ${dataDia2}">${prod.quantidadeDia2}</td>
+            <td data-label="Vendido (Dia 3→2)" class="${vendidoDia3to2 > 0 ? 'sales-positive' : ''}">${vendidoDia3to2 >= 0 ? vendidoDia3to2 : 'N/A'}</td>
+            <td data-label="Estoque ${dataDia1}">${prod.quantidadeDia1}</td>
+            <td data-label="Vendido (Dia 2→1)" class="${vendidoDia2to1 > 0 ? 'sales-positive' : ''}">${vendidoDia2to1 >= 0 ? vendidoDia2to1 : 'N/A'}</td>
           </tr>`;
       });
     });
