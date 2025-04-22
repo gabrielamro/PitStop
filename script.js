@@ -12,8 +12,8 @@ function toggleSidebar() {
 }
 
 function mostrarSecao(secaoId) {
-  document.querySelectorAll('.container').forEach(container => {
-    container.classList.remove('active');
+  document.querySelectorAll('.section').forEach(section => {
+    section.classList.remove('active');
   });
   document.getElementById(secaoId).classList.add('active');
 
@@ -22,7 +22,9 @@ function mostrarSecao(secaoId) {
   });
   document.querySelector(`.sidebar li[onclick="mostrarSecao('${secaoId}')"]`).classList.add('active');
 
-  toggleSidebar();
+  if (window.innerWidth <= 768) {
+    toggleSidebar();
+  }
 }
 
 async function testarConexao() {
@@ -47,13 +49,13 @@ async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
     if (error) throw error;
 
     let html = `
-      <table class="produto-tabela">
+      <table class="table">
         <thead>
           <tr>
             <th>ID Produto</th>
             <th>Quantidade Informada</th>
             <th>Descrição</th>
-            <th>Data da Movimentação</th>
+            <th>Data</th>
           </tr>
         </thead>
         <tbody>`;
@@ -132,7 +134,7 @@ async function carregarProdutosPorCategoria(categoria) {
 
     const produtos = produtosPorCategoria[categoria] || [];
     let html = `
-      <table class="produto-tabela">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -155,7 +157,7 @@ async function carregarProdutosPorCategoria(categoria) {
             <td>${produto.quantidade}</td>
             <td><input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0" placeholder="Nova quantidade"></td>
             <td>
-              <button onclick="atualizarEstoque(${produto.id}, document.getElementById('quantidade-${produto.id}').value, 'Atualização manual')">Atualizar</button>
+              <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, document.getElementById('quantidade-${produto.id}').value, 'Atualização manual')">Atualizar</button>
             </td>
           </tr>`;
       });
@@ -180,7 +182,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     novaQuantidade = parseInt(novaQuantidade);
 
-    // Atualiza a quantidade diretamente na tabela estoque
     const { error: updateError } = await db
       .from('estoque')
       .update({ quantidade: novaQuantidade })
@@ -188,7 +189,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     if (updateError) throw updateError;
 
-    // Registra a quantidade informada na tabela movimentacoes_estoque, sem cálculos
     const { error: insertError } = await db
       .from('movimentacoes_estoque')
       .insert([
@@ -220,10 +220,16 @@ async function carregarComparacao() {
 
   try {
     document.getElementById('resultado-comparacao').innerHTML = '<p class="loading">Carregando comparação...</p>';
+
+    // Definir o intervalo de tempo: início e fim do dia selecionado
+    const dataInicio = `${dataComparacao}T00:00:00`;
+    const dataFim = `${dataComparacao}T23:59:59`;
+
     const { data: movimentacoes, error } = await db
       .from('movimentacoes_estoque')
       .select('id_produto, quantidade, descricao, created_at')
-      .like('created_at', `${dataComparacao}%`);
+      .gte('created_at', dataInicio) // Maior ou igual ao início do dia
+      .lte('created_at', dataFim);   // Menor ou igual ao fim do dia
 
     if (error) throw error;
 
@@ -232,7 +238,7 @@ async function carregarComparacao() {
       html += '<p class="error">Nenhuma movimentação encontrada para a data selecionada.</p>';
     } else {
       html += `
-        <table class="produto-tabela">
+        <table class="table">
           <thead>
             <tr>
               <th>ID Produto</th>
@@ -248,7 +254,7 @@ async function carregarComparacao() {
             <td>${item.id_produto}</td>
             <td>${item.quantidade}</td>
             <td>${item.descricao}</td>
-            <td>${new Date(item.created_at).toLocaleDateString('pt-BR')}</td>
+            <td>${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
           </tr>`;
       });
       html += '</tbody></table>';
@@ -322,7 +328,7 @@ async function carregarComparacaoTresDias() {
     let html = `<h3>Comparação de Estoque: ${dataDia3} vs ${dataDia2} vs ${dataDia1}</h3>`;
     html += `<p>Total de produtos analisados: ${Object.keys(estoquePorDia).length}</p>`;
     html += `
-      <table class="produto-tabela">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
