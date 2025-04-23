@@ -183,11 +183,11 @@ async function carregarProdutosPorCategoria(categoria) {
             ${isMobile ? '' : `<td data-label="Quantidade Atual" class="quantidade-atual">${produto.quantidade}</td>`}
             ${mostrarGrades ? `
               <td data-label="Grades">
-                <input type="text" inputmode="numeric" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
+                <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
               </td>
             ` : ''}
             <td data-label="Unidades">
-              <input type="text" inputmode="numeric" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
+              <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
             </td>
             <td data-label="Ação">
               <button type="button" class="btn btn-action" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">Atualizar</button>
@@ -199,7 +199,6 @@ async function carregarProdutosPorCategoria(categoria) {
     html += `</tbody></table>`;
     document.getElementById('produtos-lista').innerHTML = html;
 
-    // Adicionar listeners para os botões "Atualizar"
     document.querySelectorAll('#produtos-tbody .btn-action').forEach(button => {
       button.addEventListener('click', () => {
         const idProduto = button.getAttribute('data-id');
@@ -211,7 +210,6 @@ async function carregarProdutosPorCategoria(categoria) {
       });
     });
 
-    // Adicionar listeners para depuração nos inputs
     document.querySelectorAll('.input-estoque').forEach(input => {
       input.addEventListener('change', () => {
         console.log(`Input ${input.id} alterado para: ${input.value}`);
