@@ -27,6 +27,35 @@ function mostrarSecao(secaoId) {
   }
 }
 
+// Função para obter a data atual no fuso horário de Manaus (UTC-4)
+function obterDataManaus() {
+  const agora = new Date();
+  // Ajusta para o fuso horário de Manaus (UTC-4)
+  const offsetManaus = -4 * 60; // Deslocamento em minutos (-4 horas)
+  const offsetLocal = agora.getTimezoneOffset(); // Deslocamento do fuso local em minutos
+  const diff = offsetManaus - offsetLocal; // Diferença em minutos
+  const dataManaus = new Date(agora.getTime() + diff * 60 * 1000); // Ajusta a data
+  return dataManaus;
+}
+
+// Função para formatar a data no formato YYYY-MM-DD
+function formatarDataLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+// Função para formatar a data e hora no formato brasileiro, ajustada para Manaus
+function formatarDataHoraManaus(dataStr) {
+  const data = new Date(dataStr);
+  const offsetManaus = -4 * 60; // Deslocamento em minutos (-4 horas)
+  const offsetLocal = data.getTimezoneOffset(); // Deslocamento do fuso local em minutos
+  const diff = offsetManaus - offsetLocal; // Diferença em minutos
+  const dataManaus = new Date(data.getTime() + diff * 60 * 1000); // Ajusta a data
+  return `${dataManaus.toLocaleDateString('pt-BR')} ${dataManaus.toLocaleTimeString('pt-BR')}`;
+}
+
 async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
   try {
     document.getElementById('movimentacoes-lista').innerHTML = '<p class="loading">Carregando...</p>';
@@ -59,7 +88,7 @@ async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
             <td data-label="ID Produto">${item.id_produto}</td>
             <td data-label="Quantidade Informada">${item.quantidade}</td>
             <td data-label="Descrição">${item.descricao}</td>
-            <td data-label="Data">${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
+            <td data-label="Data">${formatarDataHoraManaus(item.created_at)}</td>
           </tr>`;
       });
     }
@@ -183,6 +212,7 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     if (updateError) throw updateError;
 
+    const dataManaus = obterDataManaus();
     const { error: insertError } = await db
       .from('movimentacoes_estoque')
       .insert([
@@ -190,7 +220,7 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
           id_produto: idProduto,
           quantidade: novaQuantidade,
           descricao: descricao,
-          created_at: new Date().toISOString()
+          created_at: dataManaus.toISOString()
         }
       ]);
 
@@ -216,7 +246,7 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
         <td data-label="ID Produto">${idProduto}</td>
         <td data-label="Quantidade Informada">${novaQuantidade}</td>
         <td data-label="Descrição">${descricao}</td>
-        <td data-label="Data">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</td>
+        <td data-label="Data">${formatarDataHoraManaus(dataManaus)}</td>
       `;
       movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
     }
@@ -280,7 +310,7 @@ async function carregarComparacao() {
             <td data-label="ID Produto">${item.id_produto}</td>
             <td data-label="Quantidade">${item.quantidade}</td>
             <td data-label="Descrição">${item.descricao}</td>
-            <td data-label="Data">${new Date(item.created_at).toLocaleDateString('pt-BR')} ${new Date(item.created_at).toLocaleTimeString('pt-BR')}</td>
+            <td data-label="Data">${formatarDataHoraManaus(item.created_at)}</td>
           </tr>`;
       });
       html += '</tbody></table>';
@@ -415,20 +445,12 @@ async function carregarComparacaoTresDias() {
   }
 }
 
-// Função para formatar a data local no formato YYYY-MM-DD
-function formatarDataLocal(data) {
-  const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, '0'); // Mês é 0-11, somamos 1
-  const dia = String(data.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const hoje = formatarDataLocal(new Date());
-    document.getElementById('data-registro').value = hoje;
-    document.getElementById('data-comparacao').value = hoje;
-    document.getElementById('data-comparacao-tres-dias').value = hoje;
+    const hojeManaus = formatarDataLocal(obterDataManaus());
+    document.getElementById('data-registro').value = hojeManaus;
+    document.getElementById('data-comparacao').value = hojeManaus;
+    document.getElementById('data-comparacao-tres-dias').value = hojeManaus;
 
     await carregarDadosIniciais();
     await carregarMovimentacoes();
