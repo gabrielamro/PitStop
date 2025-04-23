@@ -183,27 +183,17 @@ async function carregarProdutosPorCategoria(categoria) {
             ${isMobile ? '' : `<td data-label="Quantidade Atual" class="quantidade-atual">${produto.quantidade}</td>`}
             ${mostrarGrades ? `
               <td data-label="Grades">
-                <input type="text" inputmode="numeric" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'}>
+                <input type="text" inputmode="numeric" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
               </td>
             ` : ''}
             <td data-label="Unidades">
-              <input type="text" inputmode="numeric" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'}>
+              <input type="text" inputmode="numeric" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
             </td>
             <td data-label="Ação">
               <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, ${mostrarGrades ? `document.getElementById('grades-${produto.id}').value` : '0'}, document.getElementById('unidades-${produto.id}').value, 'Atualização manual')">Atualizar</button>
             </td>
           </tr>`;
       });
-
-      if (isMobile) {
-        setTimeout(() => {
-          document.querySelectorAll('.input-estoque').forEach(input => {
-            input.addEventListener('touchstart', () => {
-              input.focus();
-            });
-          });
-        }, 0);
-      }
     }
 
     html += `</tbody></table>`;
@@ -216,18 +206,25 @@ async function carregarProdutosPorCategoria(categoria) {
 
 async function atualizarEstoque(idProduto, grades, unidades, descricao) {
   try {
-    if (!idProduto || isNaN(unidades) || unidades < 0) {
+    // Converter os valores para números e tratar campos vazios como 0
+    grades = parseInt(grades) || 0;
+    unidades = parseInt(unidades) || 0;
+
+    // Verificar se ambos os campos estão vazios (ou 0 após conversão)
+    if (grades === 0 && unidades === 0) {
+      alert('Por favor, informe pelo menos uma quantidade (grades ou unidades).');
+      return;
+    }
+
+    if (!idProduto || unidades < 0) {
       throw new Error('Quantidade de unidades inválida, ou ID do produto não fornecido');
     }
-    if (grades && (isNaN(grades) || grades < 0)) {
+    if (grades < 0) {
       throw new Error('Quantidade de grades inválida');
     }
     if (!descricao.trim()) {
       throw new Error('Descrição é obrigatória');
     }
-
-    grades = parseInt(grades) || 0;
-    unidades = parseInt(unidades) || 0;
 
     const novaQuantidade = (grades * 12) + unidades;
 
@@ -277,17 +274,13 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
       movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
     }
 
-    const currentRow = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"]`);
-    const nextRow = currentRow.nextElementSibling;
-    if (nextRow) {
-      const nextInput = nextRow.querySelector('.input-estoque');
-      if (nextInput) {
-        nextInput.focus();
-        nextInput.select();
-      }
-    }
+    // Limpar os campos após atualização
+    const gradesInput = document.getElementById(`grades-${idProduto}`);
+    const unidadesInput = document.getElementById(`unidades-${idProduto}`);
+    if (gradesInput) gradesInput.value = '';
+    if (unidadesInput) unidadesInput.value = '';
 
-    const mostrarGrades = categoriaAtual.trim() === "1 - Cervejas LITRÃO"; // Removida a segunda declaração de 'categoriaAtual'
+    const mostrarGrades = categoriaAtual.trim() === "1 - Cervejas LITRÃO";
     const mensagemGrades = mostrarGrades && grades > 0 ? `${grades} grades + ` : '';
     alert(`Estoque e movimentação atualizados com sucesso. Total: ${novaQuantidade} unidades (${mensagemGrades}${unidades} unidades)`);
   } catch (error) {
