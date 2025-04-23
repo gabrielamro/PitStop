@@ -27,16 +27,6 @@ function mostrarSecao(secaoId) {
   }
 }
 
-async function testarConexao() {
-  try {
-    const { data, error } = await db.from('estoque').select('id').limit(1);
-    if (error) throw error;
-    alert('Conexão com o banco de dados bem-sucedida!');
-  } catch (error) {
-    alert('Erro na conexão: ' + error.message);
-  }
-}
-
 async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
   try {
     document.getElementById('movimentacoes-lista').innerHTML = '<p class="loading">Carregando...</p>';
@@ -186,7 +176,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     novaQuantidade = parseInt(novaQuantidade);
 
-    // Atualizar o estoque no banco de dados
     const { error: updateError } = await db
       .from('estoque')
       .update({ quantidade: novaQuantidade })
@@ -194,7 +183,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     if (updateError) throw updateError;
 
-    // Registrar a movimentação
     const { error: insertError } = await db
       .from('movimentacoes_estoque')
       .insert([
@@ -208,14 +196,12 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     if (insertError) throw insertError;
 
-    // Atualizar o objeto produtosPorCategoria em memória
     const categoriaAtual = document.getElementById('categoria').value;
     const produtoIndex = produtosPorCategoria[categoriaAtual].findIndex(p => p.id === idProduto);
     if (produtoIndex !== -1) {
       produtosPorCategoria[categoriaAtual][produtoIndex].quantidade = novaQuantidade;
     }
 
-    // Atualizar a célula de Quantidade Atual na tabela (se visível no modo desktop)
     if (window.innerWidth > 768) {
       const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
       if (quantidadeCell) {
@@ -223,7 +209,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
       }
     }
 
-    // Adicionar a nova movimentação ao topo da tabela de movimentações
     const movimentacoesTbody = document.getElementById('movimentacoes-tbody');
     if (movimentacoesTbody) {
       const newRow = document.createElement('tr');
@@ -236,7 +221,6 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
       movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
     }
 
-    // Mover o foco para o próximo input
     const currentRow = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"]`);
     const nextRow = currentRow.nextElementSibling;
     if (nextRow) {
@@ -437,7 +421,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('data-registro').value = hoje;
     document.getElementById('data-comparacao').value = hoje;
     document.getElementById('data-comparacao-tres-dias').value = hoje;
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
 
     await carregarDadosIniciais();
     await carregarMovimentacoes();
