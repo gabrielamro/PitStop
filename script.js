@@ -415,9 +415,17 @@ async function carregarComparacaoTresDias() {
   }
 }
 
+// Função para formatar a data local no formato YYYY-MM-DD
+function formatarDataLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0'); // Mês é 0-11, somamos 1
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = formatarDataLocal(new Date());
     document.getElementById('data-registro').value = hoje;
     document.getElementById('data-comparacao').value = hoje;
     document.getElementById('data-comparacao-tres-dias').value = hoje;
