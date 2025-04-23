@@ -190,7 +190,7 @@ async function carregarProdutosPorCategoria(categoria) {
               <input type="text" inputmode="numeric" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
             </td>
             <td data-label="Ação">
-              <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, ${mostrarGrades ? `document.getElementById('grades-${produto.id}').value` : '0'}, document.getElementById('unidades-${produto.id}').value, 'Atualização manual')">Atualizar</button>
+              <button type="button" class="btn btn-action" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">Atualizar</button>
             </td>
           </tr>`;
       });
@@ -198,6 +198,31 @@ async function carregarProdutosPorCategoria(categoria) {
 
     html += `</tbody></table>`;
     document.getElementById('produtos-lista').innerHTML = html;
+
+    // Adicionar listeners para os botões "Atualizar"
+    document.querySelectorAll('#produtos-tbody .btn-action').forEach(button => {
+      button.addEventListener('click', () => {
+        const idProduto = button.getAttribute('data-id');
+        const mostrarGrades = button.getAttribute('data-mostrar-grades') === 'true';
+        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`).value : '0';
+        const unidadesValue = document.getElementById(`unidades-${idProduto}`).value;
+        console.log(`Botão "Atualizar" clicado para ID ${idProduto} - Grades: ${gradesValue}, Unidades: ${unidadesValue}`);
+        atualizarEstoque(idProduto, gradesValue, unidadesValue, 'Atualização manual');
+      });
+    });
+
+    // Adicionar listeners para depuração nos inputs
+    document.querySelectorAll('.input-estoque').forEach(input => {
+      input.addEventListener('change', () => {
+        console.log(`Input ${input.id} alterado para: ${input.value}`);
+      });
+      input.addEventListener('focus', () => {
+        console.log(`Input ${input.id} recebeu foco`);
+      });
+      input.addEventListener('click', () => {
+        console.log(`Input ${input.id} foi clicado`);
+      });
+    });
   } catch (error) {
     console.error('Erro ao carregar produtos:', error);
     document.getElementById('produtos-lista').innerHTML = `<p class="error">Erro ao carregar produtos: ${error.message}</p>`;
@@ -206,11 +231,10 @@ async function carregarProdutosPorCategoria(categoria) {
 
 async function atualizarEstoque(idProduto, grades, unidades, descricao) {
   try {
-    // Converter os valores para números e tratar campos vazios como 0
+    console.log(`atualizarEstoque chamada para ID ${idProduto} - Grades: ${grades}, Unidades: ${unidades}`);
     grades = parseInt(grades) || 0;
     unidades = parseInt(unidades) || 0;
 
-    // Verificar se ambos os campos estão vazios (ou 0 após conversão)
     if (grades === 0 && unidades === 0) {
       alert('Por favor, informe pelo menos uma quantidade (grades ou unidades).');
       return;
@@ -274,7 +298,6 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
       movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
     }
 
-    // Limpar os campos após atualização
     const gradesInput = document.getElementById(`grades-${idProduto}`);
     const unidadesInput = document.getElementById(`unidades-${idProduto}`);
     if (gradesInput) gradesInput.value = '';
