@@ -111,7 +111,6 @@ body {
   text-align: center;
 }
 
-/* Estilizar o campo de data no sidebar */
 .sidebar .form-group.sidebar-date {
   padding: 0.8rem 1.5rem;
   background: rgba(255, 255, 255, 0.1);
@@ -373,11 +372,15 @@ h1 {
   border-radius: 8px;
   text-align: center;
   font-size: 0.9rem;
+  /* Garantir que o input seja acessível */
+  position: relative;
+  z-index: 1;
 }
 
 .input-estoque:focus {
   border-color: var(--primary);
   outline: none;
+  z-index: 2;
 }
 
 /* Messages */
@@ -511,6 +514,13 @@ h1 {
 
   .input-estoque {
     max-width: 120px;
+    /* Garantir que o input seja acessível em mobile */
+    position: relative;
+    z-index: 1;
+  }
+
+  .input-estoque:focus {
+    z-index: 2;
   }
 
   .btn-action {
