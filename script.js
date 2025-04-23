@@ -27,18 +27,15 @@ function mostrarSecao(secaoId) {
   }
 }
 
-// Função para obter a data atual no fuso horário de Manaus (UTC-4)
 function obterDataManaus() {
   const agora = new Date();
-  // Ajusta para o fuso horário de Manaus (UTC-4)
-  const offsetManaus = -4 * 60; // Deslocamento em minutos (-4 horas)
-  const offsetLocal = agora.getTimezoneOffset(); // Deslocamento do fuso local em minutos
-  const diff = offsetManaus - offsetLocal; // Diferença em minutos
-  const dataManaus = new Date(agora.getTime() + diff * 60 * 1000); // Ajusta a data
+  const offsetManaus = -4 * 60;
+  const offsetLocal = agora.getTimezoneOffset();
+  const diff = offsetManaus - offsetLocal;
+  const dataManaus = new Date(agora.getTime() + diff * 60 * 1000);
   return dataManaus;
 }
 
-// Função para formatar a data no formato YYYY-MM-DD
 function formatarDataLocal(data) {
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, '0');
@@ -46,13 +43,12 @@ function formatarDataLocal(data) {
   return `${ano}-${mes}-${dia}`;
 }
 
-// Função para formatar a data e hora no formato brasileiro, ajustada para Manaus
 function formatarDataHoraManaus(dataStr) {
   const data = new Date(dataStr);
-  const offsetManaus = -4 * 60; // Deslocamento em minutos (-4 horas)
-  const offsetLocal = data.getTimezoneOffset(); // Deslocamento do fuso local em minutos
-  const diff = offsetManaus - offsetLocal; // Diferença em minutos
-  const dataManaus = new Date(data.getTime() + diff * 60 * 1000); // Ajusta a data
+  const offsetManaus = -4 * 60;
+  const offsetLocal = data.getTimezoneOffset();
+  const diff = offsetManaus - offsetLocal;
+  const dataManaus = new Date(data.getTime() + diff * 60 * 1000);
   return `${dataManaus.toLocaleDateString('pt-BR')} ${dataManaus.toLocaleTimeString('pt-BR')}`;
 }
 
@@ -161,14 +157,15 @@ async function carregarProdutosPorCategoria(categoria) {
             ${isMobile ? '' : '<th>ID</th>'}
             <th>Produto</th>
             ${isMobile ? '' : '<th>Quantidade Atual</th>'}
-            <th>Nova Quantidade</th>
+            <th>Grades</th>
+            <th>Unidades</th>
             <th>Ação</th>
           </tr>
         </thead>
         <tbody id="produtos-tbody">`;
 
     if (produtos.length === 0) {
-      html += `<tr><td colspan="${isMobile ? '3' : '5'}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
+      html += `<tr><td colspan="${isMobile ? '4' : '6'}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
     } else {
       produtos.forEach(produto => {
         html += `
@@ -176,11 +173,14 @@ async function carregarProdutosPorCategoria(categoria) {
             ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
             <td data-label="Produto" class="product-name">${produto.nome}</td>
             ${isMobile ? '' : `<td data-label="Quantidade Atual" class="quantidade-atual">${produto.quantidade}</td>`}
-            <td data-label="Nova Quantidade">
-              <input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nova quantidade"'}>
+            <td data-label="Grades">
+              <input type="number" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onfocus="manterFoco(this)">
+            </td>
+            <td data-label="Unidades">
+              <input type="number" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onfocus="manterFoco(this)">
             </td>
             <td data-label="Ação">
-              <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, document.getElementById('quantidade-${produto.id}').value, 'Atualização manual')">Atualizar</button>
+              <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, document.getElementById('grades-${produto.id}').value, document.getElementById('unidades-${produto.id}').value, 'Atualização manual')">Atualizar</button>
             </td>
           </tr>`;
       });
@@ -194,16 +194,27 @@ async function carregarProdutosPorCategoria(categoria) {
   }
 }
 
-async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
+function manterFoco(element) {
+  setTimeout(() => {
+    if (document.activeElement !== element) {
+      element.focus();
+    }
+  }, 100);
+}
+
+async function atualizarEstoque(idProduto, grades, unidades, descricao) {
   try {
-    if (!idProduto || isNaN(novaQuantidade) || novaQuantidade < 0) {
-      throw new Error('Quantidade inválida ou ID do produto não fornecido');
+    if (!idProduto || isNaN(grades) || isNaN(unidades) || grades < 0 || unidades < 0) {
+      throw new Error('Quantidade de grades ou unidades inválida, ou ID do produto não fornecido');
     }
     if (!descricao.trim()) {
       throw new Error('Descrição é obrigatória');
     }
 
-    novaQuantidade = parseInt(novaQuantidade);
+    grades = parseInt(grades) || 0;
+    unidades = parseInt(unidades) || 0;
+
+    const novaQuantidade = (grades * 12) + unidades;
 
     const { error: updateError } = await db
       .from('estoque')
@@ -261,7 +272,7 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
       }
     }
 
-    alert('Estoque e movimentação atualizados com sucesso');
+    alert(`Estoque e movimentação atualizados com sucesso. Total: ${novaQuantidade} unidades (${grades} grades + ${unidades} unidades)`);
   } catch (error) {
     console.error('Erro ao atualizar estoque:', error);
     alert('Erro ao atualizar estoque: ' + error.message);
@@ -445,6 +456,19 @@ async function carregarComparacaoTresDias() {
   }
 }
 
+// Função de debounce para limitar chamadas frequentes
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const hojeManaus = formatarDataLocal(obterDataManaus());
@@ -459,12 +483,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       await carregarProdutosPorCategoria(e.target.value);
     });
 
-    window.addEventListener('resize', async () => {
+    // Adicionar debounce ao evento resize
+    const debouncedCarregarProdutos = debounce(async () => {
       const categoria = document.getElementById('categoria').value;
       if (categoria) {
         await carregarProdutosPorCategoria(categoria);
       }
-    });
+    }, 300);
+
+    window.addEventListener('resize', debouncedCarregarProdutos);
   } catch (error) {
     console.error("Erro na inicialização:", error);
     alert('Erro na inicialização: ' + error.message);
