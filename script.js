@@ -49,7 +49,7 @@ async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
     if (error) throw error;
 
     let html = `
-      <table class="table">
+      <table class="table" id="movimentacoes-table">
         <thead>
           <tr>
             <th>ID Produto</th>
@@ -58,7 +58,7 @@ async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
             <th>Data</th>
           </tr>
         </thead>
-        <tbody>`;
+        <tbody id="movimentacoes-tbody">`;
 
     if (movimentacoes.length === 0) {
       html += '<tr><td colspan="4" class="error">Nenhuma movimentação encontrada.</td></tr>';
@@ -135,9 +135,8 @@ async function carregarProdutosPorCategoria(categoria) {
     const produtos = produtosPorCategoria[categoria] || [];
     const isMobile = window.innerWidth <= 768;
 
-    // Definir cabeçalhos com base no dispositivo
     let html = `
-      <table class="table">
+      <table class="table" id="produtos-table">
         <thead>
           <tr>
             ${isMobile ? '' : '<th>ID</th>'}
@@ -147,17 +146,17 @@ async function carregarProdutosPorCategoria(categoria) {
             <th>Ação</th>
           </tr>
         </thead>
-        <tbody>`;
+        <tbody id="produtos-tbody">`;
 
     if (produtos.length === 0) {
       html += `<tr><td colspan="${isMobile ? '3' : '5'}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
     } else {
       produtos.forEach(produto => {
         html += `
-          <tr>
+          <tr data-product-id="${produto.id}">
             ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
             <td data-label="Produto" class="product-name">${produto.nome}</td>
-            ${isMobile ? '' : `<td data-label="Quantidade Atual">${produto.quantidade}</td>`}
+            ${isMobile ? '' : `<td data-label="Quantidade Atual" class="quantidade-atual">${produto.quantidade}</td>`}
             <td data-label="Nova Quantidade">
               <input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nova quantidade"'}>
             </td>
@@ -187,6 +186,7 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     novaQuantidade = parseInt(novaQuantidade);
 
+    // Atualizar o estoque no banco de dados
     const { error: updateError } = await db
       .from('estoque')
       .update({ quantidade: novaQuantidade })
@@ -194,22 +194,60 @@ async function atualizarEstoque(idProduto, novaQuantidade, descricao) {
 
     if (updateError) throw updateError;
 
+    // Registrar a movimentação
     const { error: insertError } = await db
       .from('movimentacoes_estoque')
       .insert([
         {
           id_produto: idProduto,
           quantidade: novaQuantidade,
-          descricao: descricao
+          descricao: descricao,
+          created_at: new Date().toISOString()
         }
       ]);
 
     if (insertError) throw insertError;
 
+    // Atualizar o objeto produtosPorCategoria em memória
+    const categoriaAtual = document.getElementById('categoria').value;
+    const produtoIndex = produtosPorCategoria[categoriaAtual].findIndex(p => p.id === idProduto);
+    if (produtoIndex !== -1) {
+      produtosPorCategoria[categoriaAtual][produtoIndex].quantidade = novaQuantidade;
+    }
+
+    // Atualizar a célula de Quantidade Atual na tabela (se visível no modo desktop)
+    if (window.innerWidth > 768) {
+      const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
+      if (quantidadeCell) {
+        quantidadeCell.textContent = novaQuantidade;
+      }
+    }
+
+    // Adicionar a nova movimentação ao topo da tabela de movimentações
+    const movimentacoesTbody = document.getElementById('movimentacoes-tbody');
+    if (movimentacoesTbody) {
+      const newRow = document.createElement('tr');
+      newRow.innerHTML = `
+        <td data-label="ID Produto">${idProduto}</td>
+        <td data-label="Quantidade Informada">${novaQuantidade}</td>
+        <td data-label="Descrição">${descricao}</td>
+        <td data-label="Data">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</td>
+      `;
+      movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
+    }
+
+    // Mover o foco para o próximo input
+    const currentRow = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"]`);
+    const nextRow = currentRow.nextElementSibling;
+    if (nextRow) {
+      const nextInput = nextRow.querySelector('.input-estoque');
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    }
+
     alert('Estoque e movimentação atualizados com sucesso');
-    await carregarDadosIniciais();
-    await carregarProdutosPorCategoria(document.getElementById('categoria').value);
-    await carregarMovimentacoes();
   } catch (error) {
     console.error('Erro ao atualizar estoque:', error);
     alert('Erro ao atualizar estoque: ' + error.message);
