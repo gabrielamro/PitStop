@@ -111,6 +111,31 @@ body {
   text-align: center;
 }
 
+/* Estilizar o campo de data no sidebar */
+.sidebar .form-group.sidebar-date {
+  padding: 0.8rem 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 0.5rem 1rem;
+}
+
+.sidebar .form-group.sidebar-date label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 0.3rem;
+}
+
+.sidebar .form-group.sidebar-date input[type="date"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: #ffffff;
+  color: var(--text);
+}
+
 /* Overlay */
 .overlay {
   position: fixed;
@@ -169,29 +194,6 @@ body {
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-}
-
-#current-date {
-  color: var(--text-light);
-  font-size: 0.9rem;
-}
-
-.btn-test {
-  background: var(--success);
-  color: #ffffff;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: var(--transition);
-}
-
-.btn-test:hover {
-  background: #218838;
 }
 
 /* Sections */
@@ -342,7 +344,6 @@ h1 {
   background: rgba(0, 123, 255, 0.05);
 }
 
-/* Estilizar o nome do produto */
 .product-name {
   font-size: 1.1rem;
   font-weight: 600;
@@ -445,7 +446,6 @@ h1 {
     width: 280px;
   }
 
-  /* Transformar tabelas em cartões */
   .table-container {
     overflow-x: hidden;
     max-height: none;
@@ -502,7 +502,6 @@ h1 {
     justify-content: center;
   }
 
-  /* Ajustar o destaque do nome do produto no modo cartão */
   .product-name {
     font-size: 1.2rem;
     padding: 0.75rem;
@@ -544,11 +543,6 @@ h1 {
   .header-info {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .btn-test {
-    width: 100%;
-    justify-content: center;
   }
 
   .table td {
