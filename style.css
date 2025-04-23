@@ -305,7 +305,7 @@ h1 {
 .table-container {
   overflow-x: auto;
   margin-top: 1rem;
-  max-height: 500px; /* Limita a altura para rolagem vertical */
+  max-height: 500px;
   position: relative;
 }
 
@@ -340,6 +340,16 @@ h1 {
 
 .table tr:hover {
   background: rgba(0, 123, 255, 0.05);
+}
+
+/* Estilizar o nome do produto */
+.product-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a2526;
+  background: rgba(0, 123, 255, 0.05);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
 }
 
 .sales-positive {
@@ -437,8 +447,8 @@ h1 {
 
   /* Transformar tabelas em cartões */
   .table-container {
-    overflow-x: hidden; /* Remove rolagem horizontal */
-    max-height: none; /* Remove limite de altura */
+    overflow-x: hidden;
+    max-height: none;
   }
 
   .table {
@@ -449,7 +459,7 @@ h1 {
   }
 
   .table thead {
-    display: none; /* Oculta cabeçalhos */
+    display: none;
   }
 
   .table tbody {
@@ -490,6 +500,14 @@ h1 {
 
   .table td:last-child {
     justify-content: center;
+  }
+
+  /* Ajustar o destaque do nome do produto no modo cartão */
+  .product-name {
+    font-size: 1.2rem;
+    padding: 0.75rem;
+    background: rgba(0, 123, 255, 0.1);
+    border-left: 4px solid var(--primary);
   }
 
   .input-estoque {
@@ -535,6 +553,10 @@ h1 {
 
   .table td {
     font-size: 0.85rem;
+  }
+
+  .product-name {
+    font-size: 1.1rem;
   }
 
   .input-estoque {

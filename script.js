@@ -133,13 +133,16 @@ async function carregarProdutosPorCategoria(categoria) {
     }
 
     const produtos = produtosPorCategoria[categoria] || [];
+    const isMobile = window.innerWidth <= 768;
+
+    // Definir cabeçalhos com base no dispositivo
     let html = `
       <table class="table">
         <thead>
           <tr>
-            <th>ID</th>
+            ${isMobile ? '' : '<th>ID</th>'}
             <th>Produto</th>
-            <th>Quantidade Atual</th>
+            ${isMobile ? '' : '<th>Quantidade Atual</th>'}
             <th>Nova Quantidade</th>
             <th>Ação</th>
           </tr>
@@ -147,15 +150,17 @@ async function carregarProdutosPorCategoria(categoria) {
         <tbody>`;
 
     if (produtos.length === 0) {
-      html += '<tr><td colspan="5" class="error">Nenhum produto encontrado para esta categoria.</td></tr>';
+      html += `<tr><td colspan="${isMobile ? '3' : '5'}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
     } else {
       produtos.forEach(produto => {
         html += `
           <tr>
-            <td data-label="ID">${produto.id}</td>
-            <td data-label="Produto">${produto.nome}</td>
-            <td data-label="Quantidade Atual">${produto.quantidade}</td>
-            <td data-label="Nova Quantidade"><input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0" placeholder="Nova quantidade"></td>
+            ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
+            <td data-label="Produto" class="product-name">${produto.nome}</td>
+            ${isMobile ? '' : `<td data-label="Quantidade Atual">${produto.quantidade}</td>`}
+            <td data-label="Nova Quantidade">
+              <input type="number" class="input-estoque" id="quantidade-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nova quantidade"'}>
+            </td>
             <td data-label="Ação">
               <button class="btn btn-action" onclick="atualizarEstoque(${produto.id}, document.getElementById('quantidade-${produto.id}').value, 'Atualização manual')">Atualizar</button>
             </td>
@@ -401,6 +406,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('categoria').addEventListener('change', async (e) => {
       await carregarProdutosPorCategoria(e.target.value);
+    });
+
+    window.addEventListener('resize', async () => {
+      const categoria = document.getElementById('categoria').value;
+      if (categoria) {
+        await carregarProdutosPorCategoria(categoria);
+      }
     });
   } catch (error) {
     console.error("Erro na inicialização:", error);
