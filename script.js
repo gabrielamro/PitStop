@@ -211,14 +211,38 @@ async function carregarProdutosPorCategoria(categoria) {
     });
 
     document.querySelectorAll('.input-estoque').forEach(input => {
-      input.addEventListener('change', () => {
-        console.log(`Input ${input.id} alterado para: ${input.value}`);
-      });
-      input.addEventListener('focus', () => {
-        console.log(`Input ${input.id} recebeu foco`);
-      });
+      // Forçar foco ao tocar no input
       input.addEventListener('click', () => {
         console.log(`Input ${input.id} foi clicado`);
+        setTimeout(() => {
+          input.focus();
+        }, 0);
+      });
+
+      input.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Evitar comportamento padrão que pode interferir
+        console.log(`Input ${input.id} recebeu touchstart`);
+        setTimeout(() => {
+          input.focus();
+        }, 0);
+      });
+
+      // Rolar até o input ao receber foco
+      input.addEventListener('focus', () => {
+        console.log(`Input ${input.id} recebeu foco`);
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300); // Atraso para esperar o teclado abrir
+      });
+
+      // Monitorar perda de foco
+      input.addEventListener('blur', () => {
+        console.log(`Input ${input.id} perdeu foco`);
+      });
+
+      // Monitorar mudanças
+      input.addEventListener('change', () => {
+        console.log(`Input ${input.id} alterado para: ${input.value}`);
       });
     });
   } catch (error) {
