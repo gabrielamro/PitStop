@@ -25,6 +25,10 @@ function mostrarSecao(secaoId) {
   if (window.innerWidth <= 768) {
     toggleSidebar();
   }
+
+  if (secaoId === 'favoritos') {
+    carregarFavoritos();
+  }
 }
 
 function obterDataManaus() {
@@ -33,7 +37,6 @@ function obterDataManaus() {
   const offsetLocal = agora.getTimezoneOffset();
   const diff = offsetManaus - offsetLocal;
   const dataManaus = new Date(agora.getTime() + diff * 60 * 1000);
-  console.log("Data calculada (Manaus):", dataManaus);
   return dataManaus;
 }
 
@@ -41,9 +44,7 @@ function formatarDataLocal(data) {
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, '0');
   const dia = String(data.getDate()).padStart(2, '0');
-  const dataFormatada = `${ano}-${mes}-${dia}`;
-  console.log("Data formatada:", dataFormatada);
-  return dataFormatada;
+  return `${ano}-${mes}-${dia}`;
 }
 
 function formatarDataHoraManaus(dataStr) {
@@ -55,56 +56,11 @@ function formatarDataHoraManaus(dataStr) {
   return `${dataManaus.toLocaleDateString('pt-BR')} ${dataManaus.toLocaleTimeString('pt-BR')}`;
 }
 
-async function carregarMovimentacoes(pagina = 1, porPagina = 10) {
-  try {
-    document.getElementById('movimentacoes-lista').innerHTML = '<p class="loading">Carregando...</p>';
-    const { data: movimentacoes, error } = await db
-      .from('movimentacoes_estoque')
-      .select('id_produto, quantidade, descricao, created_at')
-      .order('created_at', { ascending: false })
-      .range((pagina - 1) * porPagina, pagina * porPagina - 1);
-
-    if (error) throw error;
-
-    let html = `
-      <table class="table" id="movimentacoes-table">
-        <thead>
-          <tr>
-            <th>ID Produto</th>
-            <th>Quantidade Informada</th>
-            <th>Descrição</th>
-            <th>Data</th>
-          </tr>
-        </thead>
-        <tbody id="movimentacoes-tbody">`;
-
-    if (movimentacoes.length === 0) {
-      html += '<tr><td colspan="4" class="error">Nenhuma movimentação encontrada.</td></tr>';
-    } else {
-      movimentacoes.forEach(item => {
-        html += `
-          <tr>
-            <td data-label="ID Produto">${item.id_produto}</td>
-            <td data-label="Quantidade Informada">${item.quantidade}</td>
-            <td data-label="Descrição">${item.descricao}</td>
-            <td data-label="Data">${formatarDataHoraManaus(item.created_at)}</td>
-          </tr>`;
-      });
-    }
-
-    html += `</tbody></table>`;
-    document.getElementById('movimentacoes-lista').innerHTML = html;
-  } catch (error) {
-    console.error('Erro ao carregar movimentações:', error);
-    document.getElementById('movimentacoes-lista').innerHTML = `<p class="error">Erro ao carregar movimentações: ${error.message}</p>`;
-  }
-}
-
 async function carregarDadosIniciais() {
   try {
     const { data: produtos, error } = await db
       .from('estoque')
-      .select('id, produto, categoria, quantidade')
+      .select('id, produto, categoria, quantidade, favorito')
       .order('categoria', { ascending: true })
       .order('produto', { ascending: true });
 
@@ -119,14 +75,29 @@ async function carregarDadosIniciais() {
         produtosPorCategoria[item.categoria].push({
           nome: item.produto,
           id: item.id,
-          quantidade: item.quantidade
+          quantidade: item.quantidade,
+          favorito: item.favorito || false,
+          categoriaOriginal: item.categoria
         });
       }
+    });
+
+    Object.keys(produtosPorCategoria).forEach(categoria => {
+      produtosPorCategoria[categoria].sort((a, b) => {
+        if (a.favorito && !b.favorito) return -1;
+        if (!a.favorito && b.favorito) return 1;
+        return a.nome.localeCompare(b.nome);
+      });
     });
 
     const selectCategoria = document.getElementById('categoria');
     if (selectCategoria) {
       selectCategoria.innerHTML = '<option value="">Selecione uma categoria</option>';
+      const optionFavoritos = document.createElement('option');
+      optionFavoritos.value = 'Favoritos';
+      optionFavoritos.textContent = 'Favoritos';
+      selectCategoria.appendChild(optionFavoritos);
+
       Object.keys(produtosPorCategoria).sort().forEach(categoria => {
         const option = document.createElement('option');
         option.value = categoria;
@@ -134,27 +105,165 @@ async function carregarDadosIniciais() {
         selectCategoria.appendChild(option);
       });
     }
-
-    console.log("Dados carregados com sucesso");
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
     alert('Erro ao carregar dados: ' + error.message);
   }
 }
 
+async function toggleFavorito(idProduto, isFavorito) {
+  try {
+    const novoEstado = !isFavorito;
+    const { error } = await db
+      .from('estoque')
+      .update({ favorito: novoEstado })
+      .eq('id', idProduto);
+
+    if (error) throw new Error(`Falha ao atualizar favorito no banco de dados: ${error.message}`);
+
+    let categoriaProduto = null;
+    Object.keys(produtosPorCategoria).forEach(categoria => {
+      const produtoIndex = produtosPorCategoria[categoria].findIndex(p => p.id === idProduto);
+      if (produtoIndex !== -1) {
+        produtosPorCategoria[categoria][produtoIndex].favorito = novoEstado;
+        categoriaProduto = categoria;
+        produtosPorCategoria[categoria].sort((a, b) => {
+          if (a.favorito && !b.favorito) return -1;
+          if (!a.favorito && b.favorito) return 1;
+          return a.nome.localeCompare(b.nome);
+        });
+      }
+    });
+
+    if (!categoriaProduto) {
+      console.warn(`Produto com ID ${idProduto} não encontrado em produtosPorCategoria.`);
+    }
+
+    const estrela = document.querySelector(`#favorito-${idProduto}`);
+    if (estrela) {
+      estrela.classList.toggle('fas', novoEstado);
+      estrela.classList.toggle('far', !novoEstado);
+    } else {
+      console.warn(`Elemento com ID favorito-${idProduto} não encontrado no DOM.`);
+    }
+
+    const categoriaAtual = document.getElementById('categoria')?.value;
+    if (categoriaAtual === 'Favoritos') {
+      await carregarProdutosPorCategoria('Favoritos');
+    } else if (categoriaAtual && categoriaAtual !== '' && categoriaProduto === categoriaAtual) {
+      await carregarProdutosPorCategoria(categoriaAtual);
+    }
+
+    if (document.getElementById('favoritos')?.classList.contains('active')) {
+      await carregarFavoritos();
+    }
+  } catch (error) {
+    console.error('Erro ao atualizar favorito:', error.message, error.stack);
+    alert(`Erro ao atualizar favorito: ${error.message}`);
+  }
+}
+
+async function carregarFavoritos() {
+  try {
+    document.getElementById('favoritos-lista').innerHTML = '<p class="loading">Carregando favoritos...</p>';
+
+    const favoritos = [];
+    Object.keys(produtosPorCategoria).forEach(categoria => {
+      produtosPorCategoria[categoria].forEach(produto => {
+        if (produto.favorito) {
+          favoritos.push({ ...produto, categoria });
+        }
+      });
+    });
+
+    const isMobile = window.innerWidth <= 768;
+    let html = `
+      <table class="table" id="favoritos-table">
+        <thead>
+          <tr>
+            ${isMobile ? '' : '<th>ID</th>'}
+            <th>Produto</th>
+            ${isMobile ? '' : '<th>Categoria</th>'}
+            ${isMobile ? '' : '<th>Total</th>'}
+            <th>Favorito</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="favoritos-tbody">`;
+
+    if (favoritos.length === 0) {
+      html += `<tr><td colspan="${isMobile ? 3 : 5}" class="error">Nenhum produto favoritado.</td></tr>`;
+    } else {
+      favoritos.forEach(produto => {
+        html += `
+          <tr data-product-id="${produto.id}">
+            ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
+            <td data-label="Produto" class="product-name">${produto.nome}</td>
+            ${isMobile ? '' : `<td data-label="Categoria">${produto.categoria}</td>`}
+            ${isMobile ? '' : `<td data-label="Total" class="quantidade-atual">${produto.quantidade}</td>`}
+            <td data-label="Favorito">
+              <i id="favorito-${produto.id}" class="${produto.favorito ? 'fas' : 'far'} fa-star favorito-star" onclick="toggleFavorito(${produto.id}, ${produto.favorito})"></i>
+            </td>
+            <td data-label="Ação">
+              <button type="button" class="btn btn-action btn-atualizar" data-id="${produto.id}" data-mostrar-grades="false">Atualizar</button>
+              <button type="button" class="btn btn-action btn-adicionar" data-id="${produto.id}" data-mostrar-grades="false">ADD</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    html += `</tbody></table>`;
+    document.getElementById('favoritos-lista').innerHTML = html;
+
+    document.querySelectorAll('#favoritos-tbody .btn-atualizar').forEach(button => {
+      button.addEventListener('click', () => {
+        const idProduto = button.getAttribute('data-id');
+        const unidadesValue = prompt('Digite a quantidade de unidades:');
+        if (unidadesValue !== null) {
+          atualizarEstoque(idProduto, 0, parseInt(unidadesValue), 'Atualização manual (Favoritos)');
+        }
+      });
+    });
+
+    document.querySelectorAll('#favoritos-tbody .btn-adicionar').forEach(button => {
+      button.addEventListener('click', () => {
+        const idProduto = button.getAttribute('data-id');
+        const unidadesValue = prompt('Digite a quantidade de unidades a adicionar:');
+        if (unidadesValue !== null) {
+          adicionarEstoque(idProduto, 0, parseInt(unidadesValue), 'Adição ao estoque (Favoritos)');
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Erro ao carregar favoritos:', error);
+    document.getElementById('favoritos-lista').innerHTML = `<p class="error">Erro ao carregar favoritos: ${error.message}</p>`;
+  }
+}
+
 async function carregarProdutosPorCategoria(categoria) {
   try {
-    console.log("Categoria selecionada:", categoria);
     document.getElementById('produtos-lista').innerHTML = '<p class="loading">Carregando produtos...</p>';
     if (!categoria) {
       document.getElementById('produtos-lista').innerHTML = '<p>Selecione uma categoria</p>';
       return;
     }
 
-    const produtos = produtosPorCategoria[categoria] || [];
+    let produtos = [];
+    if (categoria === 'Favoritos') {
+      Object.keys(produtosPorCategoria).forEach(cat => {
+        produtosPorCategoria[cat].forEach(produto => {
+          if (produto.favorito) {
+            produtos.push({ ...produto, categoria: produto.categoriaOriginal });
+          }
+        });
+      });
+      produtos.sort((a, b) => a.nome.localeCompare(b.nome));
+    } else {
+      produtos = produtosPorCategoria[categoria] || [];
+    }
+
     const isMobile = window.innerWidth <= 768;
-    const mostrarGrades = categoria.trim() === "1 - Cervejas LITRÃO";
-    console.log("mostrarGrades:", mostrarGrades);
+    const mostrarGrades = categoria === "1 - Cervejas LITRÃO";
 
     let html = `
       <table class="table" id="produtos-table">
@@ -162,25 +271,33 @@ async function carregarProdutosPorCategoria(categoria) {
           <tr>
             ${isMobile ? '' : '<th>ID</th>'}
             <th>Produto</th>
-            ${isMobile ? '' : '<th>Quantidade Atual</th>'}
+            ${isMobile ? '' : `<th>Total</th>`}
+            ${mostrarGrades && !isMobile ? '<th>Grades</th>' : ''}
+            ${mostrarGrades && !isMobile ? '<th>Unidades Restantes</th>' : ''}
             ${mostrarGrades ? '<th>Grades</th>' : ''}
             <th>Unidades</th>
+            <th>Favorito</th>
             <th>Ação</th>
           </tr>
         </thead>
         <tbody id="produtos-tbody">`;
 
     if (produtos.length === 0) {
-      const colspanDesktop = mostrarGrades ? 6 : 5;
-      const colspanMobile = mostrarGrades ? 4 : 3;
-      html += `<tr><td colspan="${isMobile ? colspanMobile : colspanDesktop}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
+      const colspanDesktop = mostrarGrades ? (isMobile ? 5 : 8) : (isMobile ? 4 : 6);
+      html += `<tr><td colspan="${colspanDesktop}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
     } else {
       produtos.forEach(produto => {
+        const totalUnidades = produto.quantidade || 0;
+        const gradesCalculadas = mostrarGrades ? Math.floor(totalUnidades / 12) : 0;
+        const unidadesRestantes = mostrarGrades ? totalUnidades % 12 : totalUnidades;
+
         html += `
           <tr data-product-id="${produto.id}">
             ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
             <td data-label="Produto" class="product-name">${produto.nome}</td>
-            ${isMobile ? '' : `<td data-label="Quantidade Atual" class="quantidade-atual">${produto.quantidade}</td>`}
+            ${isMobile ? '' : `<td data-label="Total" class="quantidade-atual">${totalUnidades}</td>`}
+            ${mostrarGrades && !isMobile ? `<td data-label="Grades">${gradesCalculadas}</td>` : ''}
+            ${mostrarGrades && !isMobile ? `<td data-label="Unidades Restantes">${unidadesRestantes}</td>` : ''}
             ${mostrarGrades ? `
               <td data-label="Grades">
                 <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
@@ -189,8 +306,12 @@ async function carregarProdutosPorCategoria(categoria) {
             <td data-label="Unidades">
               <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
             </td>
+            <td data-label="Favorito">
+              <i id="favorito-${produto.id}" class="${produto.favorito ? 'fas' : 'far'} fa-star favorito-star" onclick="toggleFavorito(${produto.id}, ${produto.favorito})"></i>
+            </td>
             <td data-label="Ação">
-              <button type="button" class="btn btn-action" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">Atualizar</button>
+              <button type="button" class="btn btn-action btn-atualizar" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">Atualizar</button>
+              <button type="button" class="btn btn-action btn-adicionar" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">ADD</button>
             </td>
           </tr>`;
       });
@@ -199,50 +320,40 @@ async function carregarProdutosPorCategoria(categoria) {
     html += `</tbody></table>`;
     document.getElementById('produtos-lista').innerHTML = html;
 
-    document.querySelectorAll('#produtos-tbody .btn-action').forEach(button => {
+    document.querySelectorAll('#produtos-tbody .btn-atualizar').forEach(button => {
       button.addEventListener('click', () => {
         const idProduto = button.getAttribute('data-id');
         const mostrarGrades = button.getAttribute('data-mostrar-grades') === 'true';
         const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`).value : '0';
         const unidadesValue = document.getElementById(`unidades-${idProduto}`).value;
-        console.log(`Botão "Atualizar" clicado para ID ${idProduto} - Grades: ${gradesValue}, Unidades: ${unidadesValue}`);
         atualizarEstoque(idProduto, gradesValue, unidadesValue, 'Atualização manual');
       });
     });
 
+    document.querySelectorAll('#produtos-tbody .btn-adicionar').forEach(button => {
+      button.addEventListener('click', () => {
+        const idProduto = button.getAttribute('data-id');
+        const mostrarGrades = button.getAttribute('data-mostrar-grades') === 'true';
+        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`).value : '0';
+        const unidadesValue = document.getElementById(`unidades-${idProduto}`).value;
+        adicionarEstoque(idProduto, gradesValue, unidadesValue, 'Adição ao estoque');
+      });
+    });
+
     document.querySelectorAll('.input-estoque').forEach(input => {
-      // Forçar foco ao tocar no input
+      const forceFocus = () => {
+        setTimeout(() => {
+          input.focus();
+          input.select();
+        }, 100);
+      };
+
+      input.addEventListener('touchend', (e) => {
+        forceFocus();
+      });
+
       input.addEventListener('click', () => {
-        console.log(`Input ${input.id} foi clicado`);
-        setTimeout(() => {
-          input.focus();
-        }, 0);
-      });
-
-      input.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Evitar comportamento padrão que pode interferir
-        console.log(`Input ${input.id} recebeu touchstart`);
-        setTimeout(() => {
-          input.focus();
-        }, 0);
-      });
-
-      // Rolar até o input ao receber foco
-      input.addEventListener('focus', () => {
-        console.log(`Input ${input.id} recebeu foco`);
-        setTimeout(() => {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300); // Atraso para esperar o teclado abrir
-      });
-
-      // Monitorar perda de foco
-      input.addEventListener('blur', () => {
-        console.log(`Input ${input.id} perdeu foco`);
-      });
-
-      // Monitorar mudanças
-      input.addEventListener('change', () => {
-        console.log(`Input ${input.id} alterado para: ${input.value}`);
+        forceFocus();
       });
     });
   } catch (error) {
@@ -253,7 +364,6 @@ async function carregarProdutosPorCategoria(categoria) {
 
 async function atualizarEstoque(idProduto, grades, unidades, descricao) {
   try {
-    console.log(`atualizarEstoque chamada para ID ${idProduto} - Grades: ${grades}, Unidades: ${unidades}`);
     grades = parseInt(grades) || 0;
     unidades = parseInt(unidades) || 0;
 
@@ -288,6 +398,7 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
         {
           id_produto: idProduto,
           quantidade: novaQuantidade,
+          tipo_movimentacao: 'entrada',
           descricao: descricao,
           created_at: dataManaus.toISOString()
         }
@@ -295,11 +406,15 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
 
     if (insertError) throw insertError;
 
-    const categoriaAtual = document.getElementById('categoria').value;
-    const produtoIndex = produtosPorCategoria[categoriaAtual].findIndex(p => p.id === idProduto);
-    if (produtoIndex !== -1) {
-      produtosPorCategoria[categoriaAtual][produtoIndex].quantidade = novaQuantidade;
-    }
+    const categoriaAtual = document.getElementById('categoria')?.value;
+    let categoriaProduto = null;
+    Object.keys(produtosPorCategoria).forEach(categoria => {
+      const produtoIndex = produtosPorCategoria[categoria].findIndex(p => p.id === idProduto);
+      if (produtoIndex !== -1) {
+        produtosPorCategoria[categoria][produtoIndex].quantidade = novaQuantidade;
+        categoriaProduto = categoria;
+      }
+    });
 
     if (window.innerWidth > 768) {
       const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
@@ -308,16 +423,97 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
       }
     }
 
-    const movimentacoesTbody = document.getElementById('movimentacoes-tbody');
-    if (movimentacoesTbody) {
-      const newRow = document.createElement('tr');
-      newRow.innerHTML = `
-        <td data-label="ID Produto">${idProduto}</td>
-        <td data-label="Quantidade Informada">${novaQuantidade}</td>
-        <td data-label="Descrição">${descricao}</td>
-        <td data-label="Data">${formatarDataHoraManaus(dataManaus)}</td>
-      `;
-      movimentacoesTbody.insertBefore(newRow, movimentacoesTbody.firstChild);
+    const gradesInput = document.getElementById(`grades-${idProduto}`);
+    const unidadesInput = document.getElementById(`unidades-${idProduto}`);
+    if (gradesInput) gradesInput.value = '';
+    if (unidadesInput) unidadesInput.value = '';
+
+    const mostrarGrades = categoriaAtual === "1 - Cervejas LITRÃO";
+    const mensagemGrades = mostrarGrades && grades > 0 ? `${grades} grades + ` : '';
+    alert(`Estoque e movimentação atualizados com sucesso. Total: ${novaQuantidade} unidades (${mensagemGrades}${unidades} unidades)`);
+
+    if (categoriaAtual && categoriaAtual !== '' && categoriaAtual !== 'Favoritos' && categoriaProduto === categoriaAtual) {
+      await carregarProdutosPorCategoria(categoriaAtual);
+    } else if (categoriaAtual === 'Favoritos') {
+      await carregarProdutosPorCategoria('Favoritos');
+    }
+  } catch (error) {
+    console.error('Erro ao atualizar estoque:', error);
+    alert('Erro ao atualizar estoque: ' + error.message);
+  }
+}
+
+async function adicionarEstoque(idProduto, grades, unidades, descricao) {
+  try {
+    grades = parseInt(grades) || 0;
+    unidades = parseInt(unidades) || 0;
+
+    if (grades === 0 && unidades === 0) {
+      alert('Por favor, informe pelo menos uma quantidade (grades ou unidades).');
+      return;
+    }
+
+    if (!idProduto || unidades < 0) {
+      throw new Error('Quantidade de unidades inválida, ou ID do produto não fornecido');
+    }
+    if (grades < 0) {
+      throw new Error('Quantidade de grades inválida');
+    }
+    if (!descricao.trim()) {
+      throw new Error('Descrição é obrigatória');
+    }
+
+    const { data: produto, error: fetchError } = await db
+      .from('estoque')
+      .select('quantidade')
+      .eq('id', idProduto)
+      .single();
+
+    if (fetchError || !produto) {
+      throw new Error('Produto não encontrado no banco de dados');
+    }
+
+    const quantidadeAtual = produto.quantidade || 0;
+    const quantidadeAdicional = (grades * 12) + unidades;
+    const novaQuantidade = quantidadeAtual + quantidadeAdicional;
+
+    const { error: updateError } = await db
+      .from('estoque')
+      .update({ quantidade: novaQuantidade })
+      .eq('id', idProduto);
+
+    if (updateError) throw updateError;
+
+    const dataManaus = obterDataManaus();
+    const { error: insertError } = await db
+      .from('movimentacoes_estoque')
+      .insert([
+        {
+          id_produto: idProduto,
+          quantidade: quantidadeAdicional,
+          tipo_movimentacao: 'entrada',
+          descricao: descricao,
+          created_at: dataManaus.toISOString()
+        }
+      ]);
+
+    if (insertError) throw insertError;
+
+    const categoriaAtual = document.getElementById('categoria')?.value;
+    let categoriaProduto = null;
+    Object.keys(produtosPorCategoria).forEach(categoria => {
+      const produtoIndex = produtosPorCategoria[categoria].findIndex(p => p.id === idProduto);
+      if (produtoIndex !== -1) {
+        produtosPorCategoria[categoria][produtoIndex].quantidade = novaQuantidade;
+        categoriaProduto = categoria;
+      }
+    });
+
+    if (window.innerWidth > 768) {
+      const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
+      if (quantidadeCell) {
+        quantidadeCell.textContent = novaQuantidade;
+      }
     }
 
     const gradesInput = document.getElementById(`grades-${idProduto}`);
@@ -325,12 +521,18 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
     if (gradesInput) gradesInput.value = '';
     if (unidadesInput) unidadesInput.value = '';
 
-    const mostrarGrades = categoriaAtual.trim() === "1 - Cervejas LITRÃO";
+    const mostrarGrades = categoriaAtual === "1 - Cervejas LITRÃO";
     const mensagemGrades = mostrarGrades && grades > 0 ? `${grades} grades + ` : '';
-    alert(`Estoque e movimentação atualizados com sucesso. Total: ${novaQuantidade} unidades (${mensagemGrades}${unidades} unidades)`);
+    alert(`Estoque atualizado com sucesso. Estoque atual: ${quantidadeAtual} unidades. Total adicionado: ${quantidadeAdicional} unidades (${mensagemGrades}${unidades} unidades). Novo total: ${novaQuantidade} unidades`);
+
+    if (categoriaAtual && categoriaAtual !== '' && categoriaAtual !== 'Favoritos' && categoriaProduto === categoriaAtual) {
+      await carregarProdutosPorCategoria(categoriaAtual);
+    } else if (categoriaAtual === 'Favoritos') {
+      await carregarProdutosPorCategoria('Favoritos');
+    }
   } catch (error) {
-    console.error('Erro ao atualizar estoque:', error);
-    alert('Erro ao atualizar estoque: ' + error.message);
+    console.error('Erro ao adicionar estoque:', error);
+    alert('Erro ao adicionar estoque: ' + error.message);
   }
 }
 
@@ -349,7 +551,7 @@ async function carregarComparacao() {
 
     const { data: movimentacoes, error } = await db
       .from('movimentacoes_estoque')
-      .select('id_produto, quantidade, descricao, created_at')
+      .select('id_produto, quantidade, tipo_movimentacao, descricao, created_at')
       .gte('created_at', dataInicio)
       .lte('created_at', dataFim);
 
@@ -365,6 +567,7 @@ async function carregarComparacao() {
             <tr>
               <th>ID Produto</th>
               <th>Quantidade</th>
+              <th>Tipo Movimentação</th>
               <th>Descrição</th>
               <th>Data</th>
             </tr>
@@ -375,6 +578,7 @@ async function carregarComparacao() {
           <tr>
             <td data-label="ID Produto">${item.id_produto}</td>
             <td data-label="Quantidade">${item.quantidade}</td>
+            <td data-label="Tipo Movimentação">${item.tipo_movimentacao}</td>
             <td data-label="Descrição">${item.descricao}</td>
             <td data-label="Data">${formatarDataHoraManaus(item.created_at)}</td>
           </tr>`;
@@ -458,9 +662,9 @@ async function carregarComparacaoTresDias() {
             <th>Categoria</th>
             <th>Estoque ${dataDia3}</th>
             <th>Estoque ${dataDia2}</th>
-            <th>Vendido (Dia 3→2)</th>
+            <th>Total D1</th>
             <th>Estoque ${dataDia1}</th>
-            <th>Vendido (Dia 2→1)</th>
+            <th>Total D2</th>
           </tr>
         </thead>
         <tbody>`;
@@ -473,16 +677,16 @@ async function carregarComparacaoTresDias() {
       produtosPorCategoria[prod.categoria].push(prod);
     });
 
-    let totalVendidoDia3to2 = 0;
-    let totalVendidoDia2to1 = 0;
+    let totalD1 = 0;
+    let totalD2 = 0;
 
     Object.keys(produtosPorCategoria).sort().forEach(categoria => {
       html += `<tr class="categoria-header"><td colspan="8">${categoria}</td></tr>`;
       produtosPorCategoria[categoria].sort((a, b) => a.nome.localeCompare(b.nome)).forEach(prod => {
-        const vendidoDia3to2 = prod.quantidadeDia3 - prod.quantidadeDia2;
-        const vendidoDia2to1 = prod.quantidadeDia2 - prod.quantidadeDia1;
-        if (vendidoDia3to2 > 0) totalVendidoDia3to2 += vendidoDia3to2;
-        if (vendidoDia2to1 > 0) totalVendidoDia2to1 += vendidoDia2to1;
+        const diffDia3to2 = prod.quantidadeDia3 - prod.quantidadeDia2;
+        const diffDia2to1 = prod.quantidadeDia2 - prod.quantidadeDia1;
+        if (diffDia3to2 > 0) totalD1 += diffDia3to2;
+        if (diffDia2to1 > 0) totalD2 += diffDia2to1;
         html += `
           <tr>
             <td data-label="ID">${prod.id}</td>
@@ -490,9 +694,9 @@ async function carregarComparacaoTresDias() {
             <td data-label="Categoria">${prod.categoria}</td>
             <td data-label="Estoque ${dataDia3}">${prod.quantidadeDia3}</td>
             <td data-label="Estoque ${dataDia2}">${prod.quantidadeDia2}</td>
-            <td data-label="Vendido (Dia 3→2)" class="${vendidoDia3to2 > 0 ? 'sales-positive' : ''}">${vendidoDia3to2 >= 0 ? vendidoDia3to2 : 'N/A'}</td>
+            <td data-label="Total D1" class="${diffDia3to2 > 0 ? 'sales-positive' : ''}">${diffDia3to2 >= 0 ? diffDia3to2 : 'N/A'}</td>
             <td data-label="Estoque ${dataDia1}">${prod.quantidadeDia1}</td>
-            <td data-label="Vendido (Dia 2→1)" class="${vendidoDia2to1 > 0 ? 'sales-positive' : ''}">${vendidoDia2to1 >= 0 ? vendidoDia2to1 : 'N/A'}</td>
+            <td data-label="Total D2" class="${diffDia2to1 > 0 ? 'sales-positive' : ''}">${diffDia2to1 >= 0 ? diffDia2to1 : 'N/A'}</td>
           </tr>`;
       });
     });
@@ -502,8 +706,8 @@ async function carregarComparacaoTresDias() {
     }
 
     html += '</tbody></table>';
-    html += `<p class="success">Total vendido (Dia 3→2): ${totalVendidoDia3to2} unidades</p>`;
-    html += `<p class="success">Total vendido (Dia 2→1): ${totalVendidoDia2to1} unidades</p>`;
+    html += `<p class="success">Total D1: ${totalD1} unidades</p>`;
+    html += `<p class="success">Total D2: ${totalD2} unidades</p>`;
     document.getElementById('resultado-comparacao-tres-dias').innerHTML = html;
   } catch (error) {
     console.error('Erro ao carregar comparação de três dias:', error);
@@ -532,27 +736,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (dataRegistro) {
       dataRegistro.value = hojeManaus;
-      console.log("data-registro definido como:", dataRegistro.value);
-    } else {
-      console.error("Elemento 'data-registro' não encontrado");
     }
 
     if (dataComparacao) {
       dataComparacao.value = hojeManaus;
-      console.log("data-comparacao definido como:", dataComparacao.value);
-    } else {
-      console.error("Elemento 'data-comparacao' não encontrado");
     }
 
     if (dataComparacaoTresDias) {
       dataComparacaoTresDias.value = hojeManaus;
-      console.log("data-comparacao-tres-dias definido como:", dataComparacaoTresDias.value);
-    } else {
-      console.error("Elemento 'data-comparacao-tres-dias' não encontrado");
     }
 
     await carregarDadosIniciais();
-    await carregarMovimentacoes();
 
     document.getElementById('categoria').addEventListener('change', async (e) => {
       await carregarProdutosPorCategoria(e.target.value);
