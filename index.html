@@ -1,99 +1,88 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle de Estoque</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Estoque</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h2><i class="fas fa-warehouse"></i> Controle de Estoque</h2>
-      <button class="close-btn" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
-    </div>
-    <nav>
-      <ul>
-        <li class="active" onclick="mostrarSecao('registrar-estoque')"><i class="fas fa-box"></i> Registrar Estoque</li>
-        <li onclick="mostrarSecao('historico')"><i class="fas fa-history"></i> Histórico</li>
-        <li onclick="mostrarSecao('comparacao')"><i class="fas fa-chart-bar"></i> Comparação por Data</li>
-        <li onclick="mostrarSecao('comparacao-tres-dias')"><i class="fas fa-chart-line"></i> Comparação 3 Dias</li>
-        <li>
-          <div class="form-group sidebar-date">
-            <label for="data-registro">Data do Registro</label>
+    <div class="overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-warehouse"></i> Sistema de Estoque</h2>
+            <button class="close-btn" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
+        </div>
+        <nav>
+            <ul>
+                <li class="active" onclick="mostrarSecao('registrar-estoque')"><i class="fas fa-plus-circle"></i> Registrar Estoque</li>
+                <li onclick="mostrarSecao('comparar-dia')"><i class="fas fa-calendar-day"></i> Comparar Dia</li>
+                <li onclick="mostrarSecao('comparar-tres-dias')"><i class="fas fa-calendar-alt"></i> Comparar 3 Dias</li>
+            </ul>
+        </nav>
+        <div class="form-group sidebar-date">
+            <label for="data-registro"><i class="fas fa-calendar"></i> Data:</label>
             <input type="date" id="data-registro">
-          </div>
-        </li>
-      </ul>
-    </nav>
-  </aside>
-
-  <div class="overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-
-  <main class="main-content">
-    <header class="main-header">
-      <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <div class="header-info">
-      </div>
-    </header>
-
-    <section id="registrar-estoque" class="section active">
-      <div class="card">
-        <h1><i class="fas fa-box"></i> Registrar Estoque</h1>
-        <form class="form">
-          <div class="form-group">
-            <label for="categoria">Categoria</label>
-            <select id="categoria">
-              <option value="">Selecione uma categoria</option>
-            </select>
-          </div>
-        </form>
-        <div class="table-container">
-          <div id="produtos-lista"></div>
         </div>
-      </div>
-    </section>
+    </aside>
+    <main class="main-content">
+        <header class="main-header">
+            <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div class="header-info">
+                <h1 id="header-title"><i class="fas fa-warehouse"></i> Sistema de Estoque</h1>
+            </div>
+        </header>
 
-    <section id="historico" class="section">
-      <div class="card">
-        <h1><i class="fas fa-history"></i> Histórico de Movimentações</h1>
-        <div class="table-container">
-          <div id="movimentacoes-lista"></div>
-        </div>
-      </div>
-    </section>
+        <section id="registrar-estoque" class="section active">
+            <div class="card">
+                <h1><i class="fas fa-plus-circle"></i> Registrar Estoque</h1>
+                <form class="form">
+                    <div class="form-group">
+                        <label for="categoria">Categoria:</label>
+                        <select id="categoria" required>
+                            <option value="">Selecione uma categoria</option>
+                        </select>
+                    </div>
+                    <div id="produtos-lista"></div>
+                </form>
+            </div>
+        </section>
 
-    <section id="comparacao" class="section">
-      <div class="card">
-        <h1><i class="fas fa-chart-bar"></i> Comparação por Data</h1>
-        <form class="form">
-          <div class="form-group">
-            <label for="data-comparacao">Selecione a Data</label>
-            <input type="date" id="data-comparacao">
-          </div>
-          <button type="button" class="btn btn-primary" onclick="carregarComparacao()"><i class="fas fa-search"></i> Comparar</button>
-        </form>
-        <div id="resultado-comparacao"></div>
-      </div>
-    </section>
+        <section id="comparar-dia" class="section">
+            <div class="card">
+                <h1><i class="fas fa-calendar-day"></i> Histórico</h1>
+                <form class="form">
+                    <div class="form-group">
+                        <label for="data-comparacao">Selecione a Data:</label>
+                        <input type="date" id="data-comparacao" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="carregarComparacao()">
+                        <i class="fas fa-search"></i> Comparar
+                    </button>
+                </form>
+                <div id="resultado-comparacao"></div>
+            </div>
+        </section>
 
-    <section id="comparacao-tres-dias" class="section">
-      <div class="card">
-        <h1><i class="fas fa-chart-line"></i> Comparação de Três Dias</h1>
-        <form class="form">
-          <div class="form-group">
-            <label for="data-comparacao-tres-dias">Selecione a Data Final</label>
-            <input type="date" id="data-comparacao-tres-dias">
-          </div>
-          <button type="button" class="btn btn-primary" onclick="carregarComparacaoTresDias()"><i class="fas fa-search"></i> Comparar</button>
-        </form>
-        <div id="resultado-comparacao-tres-dias"></div>
-      </div>
-    </section>
-  </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js"></script>
+        <section id="comparar-tres-dias" class="section">
+            <div class="card">
+                <h1><i class="fas fa-calendar-alt"></i> Comparar 3 Dias</h1>
+                <form class="form">
+                    <div class="form-group">
+                        <label for="data-comparacao-tres-dias">Selecione a Data Final:</label>
+                        <input type="date" id="data-comparacao-tres-dias" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="carregarComparacaoTresDias()">
+                        <i class="fas fa-search"></i> Comparar
+                    </button>
+                </form>
+                <div id="resultado-comparacao-tres-dias"></div>
+            </div>
+        </section>
+    </main>
+    <!-- Adicionar a biblioteca Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
