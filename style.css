@@ -302,6 +302,18 @@ h1 {
   background: #218838;
 }
 
+/* Ajuste para garantir espaço entre os botões no modo desktop */
+td[data-label="Ação"] {
+  display: flex;
+  gap: 12px; /* Aumentando o espaço entre os botões */
+  align-items: center;
+  justify-content: flex-start;
+}
+
+td[data-label="Ação"] .btn-action {
+  margin-right: 0; /* Removendo margin-right, já que usaremos gap */
+}
+
 /* Tables */
 .table-container {
   overflow-x: auto;
@@ -528,6 +540,18 @@ h1 {
     font-size: 0.9rem;
     width: 100%;
     max-width: 200px;
+  }
+
+  /* Adicionando margem vertical entre os botões no modo mobile */
+  td[data-label="Ação"] {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  td[data-label="Ação"] .btn-action {
+    margin-right: 0;
+    margin-bottom: 0;
   }
 
   h1 {
