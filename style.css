@@ -29,6 +29,42 @@ body {
   overflow-x: hidden;
 }
 
+/* Mensagens */
+.mensagens {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  max-width: 400px;
+  width: 90%;
+}
+
+.message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow);
+  animation: slideIn 0.3s ease;
+}
+
+.message.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.message.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 /* Sidebar */
 .sidebar {
   width: 260px;
@@ -108,7 +144,7 @@ body {
 
 .sidebar li i {
   width: 1.5rem;
-  text-align: center;
+  text-ALign: center;
 }
 
 .sidebar .form-group.sidebar-date {
@@ -267,7 +303,8 @@ h1 {
   align-items: stretch;
 }
 
-.input-group input {
+.input-group input,
+.input-group select {
   flex: 1;
 }
 
@@ -302,16 +339,20 @@ h1 {
   background: #218838;
 }
 
-/* Ajuste para garantir espaço entre os botões no modo desktop */
 td[data-label="Ação"] {
   display: flex;
-  gap: 12px; /* Aumentando o espaço entre os botões */
+  gap: 12px;
   align-items: center;
   justify-content: flex-start;
 }
 
 td[data-label="Ação"] .btn-action {
-  margin-right: 0; /* Removendo margin-right, já que usaremos gap */
+  margin-right: 0;
+}
+
+/* Nova Categoria */
+.nova-categoria {
+  transition: var(--transition);
 }
 
 /* Tables */
@@ -384,7 +425,6 @@ td[data-label="Ação"] .btn-action {
   border-radius: 8px;
   text-align: center;
   font-size: 0.9rem;
-  /* Garantir que o input seja acessível */
   position: relative;
   z-index: 1;
 }
@@ -451,6 +491,7 @@ td[data-label="Ação"] .btn-action {
   }
 
   .input-group input,
+  .input-group select,
   .input-group .btn {
     width: 100%;
   }
@@ -526,7 +567,6 @@ td[data-label="Ação"] .btn-action {
 
   .input-estoque {
     max-width: 120px;
-    /* Garantir que o input seja acessível em mobile */
     position: relative;
     z-index: 1;
   }
@@ -542,7 +582,6 @@ td[data-label="Ação"] .btn-action {
     max-width: 200px;
   }
 
-  /* Adicionando margem vertical entre os botões no modo mobile */
   td[data-label="Ação"] {
     display: flex;
     flex-direction: column;
