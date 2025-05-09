@@ -12,23 +12,24 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2><i class="fas fa-warehouse"></i> Sistema de Estoque</h2>
-            <button class="close-btn" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
+            <button class="close-btn" onclick="toggleSidebar()" aria-label="Fechar sidebar"><i class="fas fa-times"></i></button>
         </div>
         <nav>
             <ul>
-                <li class="active" onclick="mostrarSecao('registrar-estoque')"><i class="fas fa-plus-circle"></i> Registrar Estoque</li>
-                <li onclick="mostrarSecao('comparar-dia')"><i class="fas fa-calendar-day"></i> Comparar Dia</li>
-                <li onclick="mostrarSecao('comparar-tres-dias')"><i class="fas fa-calendar-alt"></i> Comparar 3 Dias</li>
+                <li class="active" onclick="mostrarSecao('registrar-estoque')" aria-label="Registrar Estoque"><i class="fas fa-plus-circle"></i> Registrar Estoque</li>
+                <li onclick="mostrarSecao('comparar-dia')" aria-label="Comparar Dia"><i class="fas fa-calendar-day"></i> Comparar Dia</li>
+                <li onclick="mostrarSecao('comparar-tres-dias')" aria-label="Comparar 3 Dias"><i class="fas fa-calendar-alt"></i> Comparar 3 Dias</li>
             </ul>
         </nav>
         <div class="form-group sidebar-date">
             <label for="data-registro"><i class="fas fa-calendar"></i> Data:</label>
-            <input type="date" id="data-registro">
+            <input type="date" id="data-registro" aria-label="Selecionar data de registro">
         </div>
     </aside>
     <main class="main-content">
+        <div id="mensagens" class="mensagens"></div>
         <header class="main-header">
-            <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Abrir menu"><i class="fas fa-bars"></i></button>
             <div class="header-info">
                 <h1 id="header-title"><i class="fas fa-warehouse"></i> Sistema de Estoque</h1>
             </div>
@@ -37,12 +38,28 @@
         <section id="registrar-estoque" class="section active">
             <div class="card">
                 <h1><i class="fas fa-plus-circle"></i> Registrar Estoque</h1>
-                <form class="form">
+                <form class="form" onsubmit="event.preventDefault(); adicionarNovoProduto(this)">
                     <div class="form-group">
                         <label for="categoria">Categoria:</label>
-                        <select id="categoria" required>
-                            <option value="">Selecione uma categoria</option>
-                        </select>
+                        <div class="input-group">
+                            <select id="categoria" aria-required="true">
+                                <option value="">Selecione uma categoria</option>
+                            </select>
+                            <button type="button" class="btn btn-primary" onclick="toggleNovaCategoria()">
+                                <i class="fas fa-plus"></i> Nova Categoria
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group nova-categoria" id="nova-categoria" style="display: none;">
+                        <label for="nova-categoria-input">Nova Categoria:</label>
+                        <input type="text" id="nova-categoria-input" placeholder="Nome da nova categoria" aria-label="Nome da nova categoria">
+                    </div>
+                    <div class="form-group add-produto">
+                        <label for="novo-produto">Novo Produto:</label>
+                        <div class="input-group">
+                            <input type="text" id="novo-produto" placeholder="Nome do produto" required aria-required="true">
+                            <button type="submit" class="btn btn-primary" id="adicionar-btn"><i class="fas fa-plus"></i> Adicionar</button>
+                        </div>
                     </div>
                     <div id="produtos-lista"></div>
                 </form>
@@ -52,14 +69,12 @@
         <section id="comparar-dia" class="section">
             <div class="card">
                 <h1><i class="fas fa-calendar-day"></i> Histórico</h1>
-                <form class="form">
+                <form class="form" onsubmit="event.preventDefault(); carregarComparacao()">
                     <div class="form-group">
                         <label for="data-comparacao">Selecione a Data:</label>
-                        <input type="date" id="data-comparacao" required>
+                        <input type="date" id="data-comparacao" required aria-required="true">
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="carregarComparacao()">
-                        <i class="fas fa-search"></i> Comparar
-                    </button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Comparar</button>
                 </form>
                 <div id="resultado-comparacao"></div>
             </div>
@@ -68,20 +83,17 @@
         <section id="comparar-tres-dias" class="section">
             <div class="card">
                 <h1><i class="fas fa-calendar-alt"></i> Comparar 3 Dias</h1>
-                <form class="form">
+                <form class="form" onsubmit="event.preventDefault(); carregarComparacaoTresDias()">
                     <div class="form-group">
                         <label for="data-comparacao-tres-dias">Selecione a Data Final:</label>
-                        <input type="date" id="data-comparacao-tres-dias" required>
+                        <input type="date" id="data-comparacao-tres-dias" required aria-required="true">
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="carregarComparacaoTresDias()">
-                        <i class="fas fa-search"></i> Comparar
-                    </button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Comparar</button>
                 </form>
                 <div id="resultado-comparacao-tres-dias"></div>
             </div>
         </section>
     </main>
-    <!-- Adicionar a biblioteca Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="script.js"></script>
 </body>
