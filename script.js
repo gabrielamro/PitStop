@@ -1,45 +1,65 @@
+// Configuração do Supabase (use RLS no Supabase e mova para backend em produção)
 const SUPABASE_URL = "https://mzahiyhvxxgegyyfmmbl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16YWhpeWh2eHhnZWd5eWZtbWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ0MzUzMzIsImV4cCI6MjA2MDAxMTMzMn0.IBwErJNVkeNUggCxXzZ0MsDldTRqAlqTAcWoxkX5gsU";
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { autoRefreshToken: true, persistSession: true }
+});
 
 let produtosPorCategoria = {};
 
+// Exibir mensagens no DOM
+function mostrarMensagem(mensagem, tipo = 'error') {
+  const mensagensDiv = document.getElementById('mensagens');
+  const mensagemDiv = document.createElement('div');
+  mensagemDiv.className = `message ${tipo}`;
+  mensagemDiv.innerHTML = `<i class="fas fa-${tipo === 'error' ? 'exclamation-circle' : 'check-circle'}"></i> ${mensagem}`;
+  mensagensDiv.appendChild(mensagemDiv);
+  setTimeout(() => mensagemDiv.remove(), 5000);
+}
+
+// Alternar sidebar
 function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('active');
-  overlay.classList.toggle('active');
+  document.getElementById('sidebar').classList.toggle('active');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
 }
 
+// Mostrar seção ativa
 function mostrarSecao(secaoId) {
-  document.querySelectorAll('.section').forEach(section => {
-    section.classList.remove('active');
-  });
+  document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
   document.getElementById(secaoId).classList.add('active');
-
-  document.querySelectorAll('.sidebar li').forEach(li => {
-    li.classList.remove('active');
-  });
+  document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
   document.querySelector(`.sidebar li[onclick="mostrarSecao('${secaoId}')"]`).classList.add('active');
+  if (window.innerWidth <= 768) toggleSidebar();
+}
 
-  if (window.innerWidth <= 768) {
-    toggleSidebar();
-  }
-
-  if (secaoId === 'favoritos') {
-    carregarFavoritos();
+// Alternar campo de nova categoria
+function toggleNovaCategoria() {
+  const novaCategoriaDiv = document.getElementById('nova-categoria');
+  const categoriaSelect = document.getElementById('categoria');
+  const toggleButton = document.querySelector('button[onclick="toggleNovaCategoria()"]');
+  
+  if (novaCategoriaDiv.style.display === 'none') {
+    novaCategoriaDiv.style.display = 'block';
+    categoriaSelect.disabled = true;
+    toggleButton.innerHTML = '<i class="fas fa-list"></i> Selecionar Categoria';
+  } else {
+    novaCategoriaDiv.style.display = 'none';
+    categoriaSelect.disabled = false;
+    toggleButton.innerHTML = '<i class="fas fa-plus"></i> Nova Categoria';
+    document.getElementById('nova-categoria-input').value = '';
   }
 }
 
+// Obter data em Manaus
 function obterDataManaus() {
   const agora = new Date();
   const offsetManaus = -4 * 60;
   const offsetLocal = agora.getTimezoneOffset();
   const diff = offsetManaus - offsetLocal;
-  const dataManaus = new Date(agora.getTime() + diff * 60 * 1000);
-  return dataManaus;
+  return new Date(agora.getTime() + diff * 60 * 1000);
 }
 
+// Formatador de data local
 function formatarDataLocal(data) {
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, '0');
@@ -47,6 +67,7 @@ function formatarDataLocal(data) {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Formatador de data e hora em Manaus
 function formatarDataHoraManaus(dataStr) {
   const data = new Date(dataStr);
   const offsetManaus = -4 * 60;
@@ -56,21 +77,23 @@ function formatarDataHoraManaus(dataStr) {
   return `${dataManaus.toLocaleDateString('pt-BR')} ${dataManaus.toLocaleTimeString('pt-BR')}`;
 }
 
+// Carregar dados iniciais
 async function carregarDadosIniciais() {
   try {
     const { data: produtos, error } = await db
       .from('estoque')
-      .select('id, produto, categoria, quantidade, favorito')
+      .select('id,produto,categoria,quantidade,favorito')
       .order('categoria', { ascending: true })
       .order('produto', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.log('Erro completo:', error);
+      throw new Error(`Erro ao carregar produtos: ${error.message}`);
+    }
 
     produtosPorCategoria = {};
     produtos.forEach(item => {
-      if (!produtosPorCategoria[item.categoria]) {
-        produtosPorCategoria[item.categoria] = [];
-      }
+      if (!produtosPorCategoria[item.categoria]) produtosPorCategoria[item.categoria] = [];
       if (!produtosPorCategoria[item.categoria].some(p => p.id === item.id)) {
         produtosPorCategoria[item.categoria].push({
           nome: item.produto,
@@ -97,7 +120,6 @@ async function carregarDadosIniciais() {
       optionFavoritos.value = 'Favoritos';
       optionFavoritos.textContent = 'Favoritos';
       selectCategoria.appendChild(optionFavoritos);
-
       Object.keys(produtosPorCategoria).sort().forEach(categoria => {
         const option = document.createElement('option');
         option.value = categoria;
@@ -107,10 +129,11 @@ async function carregarDadosIniciais() {
     }
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
-    alert('Erro ao carregar dados: ' + error.message);
+    mostrarMensagem('Falha ao carregar os dados. Verifique sua conexão ou permissões.');
   }
 }
 
+// Alternar favorito
 async function toggleFavorito(idProduto, isFavorito) {
   try {
     const novoEstado = !isFavorito;
@@ -119,7 +142,7 @@ async function toggleFavorito(idProduto, isFavorito) {
       .update({ favorito: novoEstado })
       .eq('id', idProduto);
 
-    if (error) throw new Error(`Falha ao atualizar favorito no banco de dados: ${error.message}`);
+    if (error) throw new Error(`Erro ao atualizar favorito: ${error.message}`);
 
     let categoriaProduto = null;
     Object.keys(produtosPorCategoria).forEach(categoria => {
@@ -135,116 +158,29 @@ async function toggleFavorito(idProduto, isFavorito) {
       }
     });
 
-    if (!categoriaProduto) {
-      console.warn(`Produto com ID ${idProduto} não encontrado em produtosPorCategoria.`);
-    }
-
     const estrela = document.querySelector(`#favorito-${idProduto}`);
     if (estrela) {
       estrela.classList.toggle('fas', novoEstado);
       estrela.classList.toggle('far', !novoEstado);
-    } else {
-      console.warn(`Elemento com ID favorito-${idProduto} não encontrado no DOM.`);
     }
 
     const categoriaAtual = document.getElementById('categoria')?.value;
-    if (categoriaAtual === 'Favoritos') {
-      await carregarProdutosPorCategoria('Favoritos');
-    } else if (categoriaAtual && categoriaAtual !== '' && categoriaProduto === categoriaAtual) {
+    if (categoriaAtual === 'Favoritos' || (categoriaAtual && categoriaAtual !== '' && categoriaProduto === categoriaAtual)) {
       await carregarProdutosPorCategoria(categoriaAtual);
     }
-
-    if (document.getElementById('favoritos')?.classList.contains('active')) {
-      await carregarFavoritos();
-    }
   } catch (error) {
-    console.error('Erro ao atualizar favorito:', error.message, error.stack);
-    alert(`Erro ao atualizar favorito: ${error.message}`);
+    console.error('Erro ao atualizar favorito:', error);
+    mostrarMensagem('Falha ao atualizar favorito. Tente novamente.');
   }
 }
 
-async function carregarFavoritos() {
-  try {
-    document.getElementById('favoritos-lista').innerHTML = '<p class="loading">Carregando favoritos...</p>';
-
-    const favoritos = [];
-    Object.keys(produtosPorCategoria).forEach(categoria => {
-      produtosPorCategoria[categoria].forEach(produto => {
-        if (produto.favorito) {
-          favoritos.push({ ...produto, categoria });
-        }
-      });
-    });
-
-    const isMobile = window.innerWidth <= 768;
-    let html = `
-      <table class="table" id="favoritos-table">
-        <thead>
-          <tr>
-            ${isMobile ? '' : '<th>ID</th>'}
-            <th>Produto</th>
-            ${isMobile ? '' : '<th>Categoria</th>'}
-            ${isMobile ? '' : '<th>Total</th>'}
-            <th>Favorito</th>
-            <th>Ação</th>
-          </tr>
-        </thead>
-        <tbody id="favoritos-tbody">`;
-
-    if (favoritos.length === 0) {
-      html += `<tr><td colspan="${isMobile ? 3 : 5}" class="error">Nenhum produto favoritado.</td></tr>`;
-    } else {
-      favoritos.forEach(produto => {
-        html += `
-          <tr data-product-id="${produto.id}">
-            ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
-            <td data-label="Produto" class="product-name">${produto.nome}</td>
-            ${isMobile ? '' : `<td data-label="Categoria">${produto.categoria}</td>`}
-            ${isMobile ? '' : `<td data-label="Total" class="quantidade-atual">${produto.quantidade}</td>`}
-            <td data-label="Favorito">
-              <i id="favorito-${produto.id}" class="${produto.favorito ? 'fas' : 'far'} fa-star favorito-star" onclick="toggleFavorito(${produto.id}, ${produto.favorito})"></i>
-            </td>
-            <td data-label="Ação">
-              <button type="button" class="btn btn-action btn-atualizar" data-id="${produto.id}" data-mostrar-grades="false">Atualizar</button>
-              <button type="button" class="btn btn-action btn-adicionar" data-id="${produto.id}" data-mostrar-grades="false">ADD</button>
-            </td>
-          </tr>`;
-      });
-    }
-
-    html += `</tbody></table>`;
-    document.getElementById('favoritos-lista').innerHTML = html;
-
-    document.querySelectorAll('#favoritos-tbody .btn-atualizar').forEach(button => {
-      button.addEventListener('click', () => {
-        const idProduto = button.getAttribute('data-id');
-        const unidadesValue = prompt('Digite a quantidade de unidades:');
-        if (unidadesValue !== null) {
-          atualizarEstoque(idProduto, 0, parseInt(unidadesValue), 'Atualização manual (Favoritos)');
-        }
-      });
-    });
-
-    document.querySelectorAll('#favoritos-tbody .btn-adicionar').forEach(button => {
-      button.addEventListener('click', () => {
-        const idProduto = button.getAttribute('data-id');
-        const unidadesValue = prompt('Digite a quantidade de unidades a adicionar:');
-        if (unidadesValue !== null) {
-          adicionarEstoque(idProduto, 0, parseInt(unidadesValue), 'Adição ao estoque (Favoritos)');
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Erro ao carregar favoritos:', error);
-    document.getElementById('favoritos-lista').innerHTML = `<p class="error">Erro ao carregar favoritos: ${error.message}</p>`;
-  }
-}
-
+// Carregar produtos por categoria
 async function carregarProdutosPorCategoria(categoria) {
   try {
-    document.getElementById('produtos-lista').innerHTML = '<p class="loading">Carregando produtos...</p>';
+    const produtosLista = document.getElementById('produtos-lista');
+    produtosLista.innerHTML = '<p class="loading">Carregando produtos...</p>';
     if (!categoria) {
-      document.getElementById('produtos-lista').innerHTML = '<p>Selecione uma categoria</p>';
+      produtosLista.innerHTML = '<p>Selecione uma categoria</p>';
       return;
     }
 
@@ -252,9 +188,7 @@ async function carregarProdutosPorCategoria(categoria) {
     if (categoria === 'Favoritos') {
       Object.keys(produtosPorCategoria).forEach(cat => {
         produtosPorCategoria[cat].forEach(produto => {
-          if (produto.favorito) {
-            produtos.push({ ...produto, categoria: produto.categoriaOriginal });
-          }
+          if (produto.favorito) produtos.push({ ...produto, categoria: produto.categoriaOriginal });
         });
       });
       produtos.sort((a, b) => a.nome.localeCompare(b.nome));
@@ -266,14 +200,17 @@ async function carregarProdutosPorCategoria(categoria) {
     const mostrarGrades = categoria === "1 - Cervejas LITRÃO";
 
     let html = `
+      <div class="table-controls" style="margin-bottom: 10px;">
+        <button type="button" id="excluir-selecionados" class="btn btn-action" style="background: var(--danger); display: none;">Excluir Selecionados</button>
+      </div>
       <table class="table" id="produtos-table">
         <thead>
           <tr>
+            <th><input type="checkbox" id="selecionar-todos"></th>
             ${isMobile ? '' : '<th>ID</th>'}
             <th>Produto</th>
             ${isMobile ? '' : `<th>Total</th>`}
-            ${mostrarGrades && !isMobile ? '<th>Grades</th>' : ''}
-            ${mostrarGrades && !isMobile ? '<th>Unidades Restantes</th>' : ''}
+            ${mostrarGrades && !isMobile ? '<th>Grades</th><th>Unidades Restantes</th>' : ''}
             ${mostrarGrades ? '<th>Grades</th>' : ''}
             <th>Unidades</th>
             <th>Favorito</th>
@@ -283,8 +220,8 @@ async function carregarProdutosPorCategoria(categoria) {
         <tbody id="produtos-tbody">`;
 
     if (produtos.length === 0) {
-      const colspanDesktop = mostrarGrades ? (isMobile ? 5 : 8) : (isMobile ? 4 : 6);
-      html += `<tr><td colspan="${colspanDesktop}" class="error">Nenhum produto encontrado para esta categoria.</td></tr>`;
+      const colspan = mostrarGrades ? (isMobile ? 5 : 8) : (isMobile ? 4 : 6);
+      html += `<tr><td colspan="${colspan}" class="error">Nenhum produto encontrado.</td></tr>`;
     } else {
       produtos.forEach(produto => {
         const totalUnidades = produto.quantidade || 0;
@@ -293,22 +230,14 @@ async function carregarProdutosPorCategoria(categoria) {
 
         html += `
           <tr data-product-id="${produto.id}">
+            <td><input type="checkbox" class="selecionar-produto" data-id="${produto.id}"></td>
             ${isMobile ? '' : `<td data-label="ID">${produto.id}</td>`}
             <td data-label="Produto" class="product-name">${produto.nome}</td>
             ${isMobile ? '' : `<td data-label="Total" class="quantidade-atual">${totalUnidades}</td>`}
-            ${mostrarGrades && !isMobile ? `<td data-label="Grades">${gradesCalculadas}</td>` : ''}
-            ${mostrarGrades && !isMobile ? `<td data-label="Unidades Restantes">${unidadesRestantes}</td>` : ''}
-            ${mostrarGrades ? `
-              <td data-label="Grades">
-                <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="grades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Nº de grades"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
-              </td>
-            ` : ''}
-            <td data-label="Unidades">
-              <input type="tel" inputmode="numeric" pattern="[0-9]*" class="input-estoque" id="unidades-${produto.id}" min="0"${isMobile ? '' : ' placeholder="Unidades avulsas"'} onkeydown="if(event.key === 'Enter') event.preventDefault();">
-            </td>
-            <td data-label="Favorito">
-              <i id="favorito-${produto.id}" class="${produto.favorito ? 'fas' : 'far'} fa-star favorito-star" onclick="toggleFavorito(${produto.id}, ${produto.favorito})"></i>
-            </td>
+            ${mostrarGrades && !isMobile ? `<td data-label="Grades">${gradesCalculadas}</td><td data-label="Unidades Restantes">${unidadesRestantes}</td>` : ''}
+            ${mostrarGrades ? `<td data-label="Grades"><input type="number" class="input-estoque" id="grades-${produto.id}" min="0" placeholder="Nº de grades"></td>` : ''}
+            <td data-label="Unidades"><input type="number" class="input-estoque" id="unidades-${produto.id}" min="0" placeholder="Unidades"></td>
+            <td data-label="Favorito"><i id="favorito-${produto.id}" class="${produto.favorito ? 'fas' : 'far'} fa-star favorito-star" onclick="toggleFavorito(${produto.id}, ${produto.favorito})"></i></td>
             <td data-label="Ação">
               <button type="button" class="btn btn-action btn-atualizar" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">Atualizar</button>
               <button type="button" class="btn btn-action btn-adicionar" data-id="${produto.id}" data-mostrar-grades="${mostrarGrades}">ADD</button>
@@ -318,15 +247,18 @@ async function carregarProdutosPorCategoria(categoria) {
     }
 
     html += `</tbody></table>`;
-    document.getElementById('produtos-lista').innerHTML = html;
+    produtosLista.innerHTML = html;
 
+    // Configurar eventos
     document.querySelectorAll('#produtos-tbody .btn-atualizar').forEach(button => {
       button.addEventListener('click', () => {
         const idProduto = button.getAttribute('data-id');
         const mostrarGrades = button.getAttribute('data-mostrar-grades') === 'true';
-        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`).value : '0';
-        const unidadesValue = document.getElementById(`unidades-${idProduto}`).value;
-        atualizarEstoque(idProduto, gradesValue, unidadesValue, 'Atualização manual');
+        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`)?.value : '0';
+        const unidadesValue = document.getElementById(`unidades-${idProduto}`)?.value;
+        if (validarInputs(gradesValue, unidadesValue)) {
+          atualizarEstoque(idProduto, gradesValue, unidadesValue, 'Atualização manual');
+        }
       });
     });
 
@@ -334,62 +266,229 @@ async function carregarProdutosPorCategoria(categoria) {
       button.addEventListener('click', () => {
         const idProduto = button.getAttribute('data-id');
         const mostrarGrades = button.getAttribute('data-mostrar-grades') === 'true';
-        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`).value : '0';
-        const unidadesValue = document.getElementById(`unidades-${idProduto}`).value;
-        adicionarEstoque(idProduto, gradesValue, unidadesValue, 'Adição ao estoque');
+        const gradesValue = mostrarGrades ? document.getElementById(`grades-${idProduto}`)?.value : '0';
+        const unidadesValue = document.getElementById(`unidades-${idProduto}`)?.value;
+        if (validarInputs(gradesValue, unidadesValue)) {
+          adicionarEstoque(idProduto, gradesValue, unidadesValue, 'Adição ao estoque');
+        }
       });
     });
 
-    document.querySelectorAll('.input-estoque').forEach(input => {
-      const forceFocus = () => {
-        setTimeout(() => {
-          input.focus();
-          input.select();
-        }, 100);
-      };
-
-      input.addEventListener('touchend', (e) => {
-        forceFocus();
-      });
-
-      input.addEventListener('click', () => {
-        forceFocus();
-      });
-    });
+    configurarSelecaoProdutos();
   } catch (error) {
     console.error('Erro ao carregar produtos:', error);
     document.getElementById('produtos-lista').innerHTML = `<p class="error">Erro ao carregar produtos: ${error.message}</p>`;
   }
 }
 
-async function atualizarEstoque(idProduto, grades, unidades, descricao) {
-  try {
-    grades = parseInt(grades) || 0;
-    unidades = parseInt(unidades) || 0;
+// Validar inputs
+function validarInputs(grades, unidades) {
+  const gradesNum = parseInt(grades) || 0;
+  const unidadesNum = parseInt(unidades) || 0;
+  if (isNaN(gradesNum) || isNaN(unidadesNum) || gradesNum < 0 || unidadesNum < 0) {
+    mostrarMensagem('Por favor, insira valores numéricos válidos.');
+    return false;
+  }
+  if (gradesNum === 0 && unidadesNum === 0) {
+    mostrarMensagem('Informe pelo menos uma quantidade (grades ou unidades).');
+    return false;
+  }
+  return true;
+}
 
-    if (grades === 0 && unidades === 0) {
-      alert('Por favor, informe pelo menos uma quantidade (grades ou unidades).');
+// Configurar seleção de produtos
+function configurarSelecaoProdutos() {
+  const selecionarTodos = document.getElementById('selecionar-todos');
+  const checkboxes = document.querySelectorAll('.selecionar-produto');
+  const botaoExcluir = document.getElementById('excluir-selecionados');
+
+  selecionarTodos.addEventListener('change', () => {
+    checkboxes.forEach(checkbox => (checkbox.checked = selecionarTodos.checked));
+    botaoExcluir.style.display = Array.from(checkboxes).some(c => c.checked) ? 'inline-block' : 'none';
+  });
+
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      selecionarTodos.checked = Array.from(checkboxes).every(c => c.checked);
+      botaoExcluir.style.display = Array.from(checkboxes).some(c => c.checked) ? 'inline-block' : 'none';
+    });
+  });
+
+  botaoExcluir.addEventListener('click', () => {
+    const selecionados = Array.from(checkboxes)
+      .filter(checkbox => checkbox.checked)
+      .map(checkbox => checkbox.getAttribute('data-id'));
+    if (selecionados.length === 0) {
+      mostrarMensagem('Nenhum produto selecionado para exclusão.');
+      return;
+    }
+    if (confirm(`Tem certeza que deseja excluir ${selecionados.length} produto(s)?`)) {
+      excluirProdutos(selecionados);
+    }
+  });
+}
+
+// Adicionar novo produto
+async function adicionarNovoProduto(form) {
+  try {
+    const button = form.querySelector('#adicionar-btn');
+    button.disabled = true;
+
+    const nomeProduto = document.getElementById('novo-produto').value.trim();
+    const categoriaSelect = document.getElementById('categoria').value;
+    const novaCategoriaInput = document.getElementById('nova-categoria-input').value.trim();
+    const isNovaCategoria = document.getElementById('nova-categoria').style.display !== 'none';
+
+    if (!nomeProduto) {
+      mostrarMensagem('Por favor, insira o nome do produto.');
       return;
     }
 
-    if (!idProduto || unidades < 0) {
-      throw new Error('Quantidade de unidades inválida, ou ID do produto não fornecido');
-    }
-    if (grades < 0) {
-      throw new Error('Quantidade de grades inválida');
-    }
-    if (!descricao.trim()) {
-      throw new Error('Descrição é obrigatória');
+    let categoria = isNovaCategoria ? novaCategoriaInput : categoriaSelect;
+    if (!categoria || categoria === 'Favoritos' || categoria === '') {
+      mostrarMensagem('Por favor, selecione uma categoria existente ou insira uma nova categoria válida.');
+      return;
     }
 
-    const novaQuantidade = (grades * 12) + unidades;
+    const nomeProdutoSanitizado = nomeProduto.replace(/[^\w\s-]/g, '').substring(0, 255);
+    const categoriaSanitizada = categoria.replace(/[^\w\s-]/g, '').substring(0, 255);
+
+    if (!nomeProdutoSanitizado || !categoriaSanitizada) {
+      mostrarMensagem('Nome do produto ou categoria contém caracteres inválidos.');
+      return;
+    }
+
+    const { data: produtoExistente, error: fetchError } = await db
+      .from('estoque')
+      .select('id')
+      .eq('produto', encodeURIComponent(nomeProdutoSanitizado))
+      .eq('categoria', encodeURIComponent(categoriaSanitizada))
+      .maybeSingle();
+
+    if (produtoExistente) {
+      mostrarMensagem('Este produto já existe nesta categoria.');
+      return;
+    }
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.log('Erro ao verificar produto:', fetchError);
+      throw new Error(`Erro ao verificar produto: ${fetchError.message}`);
+    }
+
+    const { data, error } = await db
+      .from('estoque')
+      .insert([{ produto: nomeProdutoSanitizado, categoria: categoriaSanitizada, quantidade: 0, favorito: false }])
+      .select('id,produto,categoria,quantidade,favorito')
+      .single();
+
+    if (error) {
+      if (error.message.includes('duplicate key')) {
+        mostrarMensagem('Erro: Este produto já existe ou houve um conflito no banco de dados.');
+        return;
+      }
+      throw new Error(`Erro ao inserir produto: ${error.message}`);
+    }
+
+    if (!produtosPorCategoria[categoriaSanitizada]) produtosPorCategoria[categoriaSanitizada] = [];
+    produtosPorCategoria[categoriaSanitizada].push({
+      nome: data.produto,
+      id: data.id,
+      quantidade: data.quantidade,
+      favorito: data.favorito,
+      categoriaOriginal: data.categoria
+    });
+
+    produtosPorCategoria[categoriaSanitizada].sort((a, b) => {
+      if (a.favorito && !b.favorito) return -1;
+      if (!a.favorito && b.favorito) return 1;
+      return a.nome.localeCompare(b.nome);
+    });
+
+    const selectCategoria = document.getElementById('categoria');
+    if (!selectCategoria.querySelector(`option[value="${categoriaSanitizada}"]`)) {
+      const option = document.createElement('option');
+      option.value = categoriaSanitizada;
+      option.textContent = categoriaSanitizada;
+      selectCategoria.appendChild(option);
+    }
+
+    document.getElementById('novo-produto').value = '';
+    document.getElementById('nova-categoria-input').value = '';
+    document.getElementById('nova-categoria').style.display = 'none';
+    selectCategoria.disabled = false;
+    document.querySelector('button[onclick="toggleNovaCategoria()"]').innerHTML = '<i class="fas fa-plus"></i> Nova Categoria';
+    selectCategoria.value = categoriaSanitizada;
+
+    await carregarProdutosPorCategoria(categoriaSanitizada);
+    mostrarMensagem(`Produto "${nomeProdutoSanitizado}" adicionado à categoria "${categoriaSanitizada}" com sucesso!`, 'success');
+  } catch (error) {
+    console.error('Erro ao adicionar produto:', error);
+    mostrarMensagem('Falha ao adicionar o produto. Tente novamente.');
+  } finally {
+    form.querySelector('#adicionar-btn').disabled = false;
+  }
+}
+
+// Excluir produtos
+async function excluirProdutos(idsProdutos) {
+  try {
+    const { error: deleteError } = await db
+      .from('estoque')
+      .delete()
+      .in('id', idsProdutos);
+
+    if (deleteError) throw new Error(`Erro ao excluir produtos: ${deleteError.message}`);
+
+    const { error: deleteMovError } = await db
+      .from('movimentacoes_estoque')
+      .delete()
+      .in('id_produto', idsProdutos);
+
+    if (deleteMovError) throw new Error(`Erro ao excluir movimentações: ${deleteMovError.message}`);
+
+    let categoriasAfetadas = new Set();
+    idsProdutos.forEach(idProduto => {
+      Object.keys(produtosPorCategoria).forEach(categoria => {
+        const produtoIndex = produtosPorCategoria[categoria].findIndex(p => p.id === idProduto);
+        if (produtoIndex !== -1) {
+          produtosPorCategoria[categoria].splice(produtoIndex, 1);
+          if (produtosPorCategoria[categoria].length === 0) {
+            delete produtosPorCategoria[categoria];
+            const selectCategoria = document.getElementById('categoria');
+            const option = selectCategoria.querySelector(`option[value="${categoria}"]`);
+            if (option) option.remove();
+          }
+          categoriasAfetadas.add(categoria);
+        }
+      });
+    });
+
+    const categoriaSelecionada = document.getElementById('categoria').value;
+    if (categoriaSelecionada === 'Favoritos' || categoriasAfetadas.has(categoriaSelecionada)) {
+      await carregarProdutosPorCategoria(categoriaSelecionada);
+    }
+    mostrarMensagem(`${idsProdutos.length} produto(s) excluído(s) com sucesso!`, 'success');
+  } catch (error) {
+    console.error('Erro ao excluir produtos:', error);
+    mostrarMensagem('Falha ao excluir produtos. Tente novamente.');
+  }
+}
+
+// Atualizar estoque
+async function atualizarEstoque(idProduto, grades, unidades, descricao) {
+  try {
+    const gradesNum = parseInt(grades) || 0;
+    const unidadesNum = parseInt(unidades) || 0;
+
+    if (!validarInputs(gradesNum, unidadesNum)) return;
+
+    const novaQuantidade = (gradesNum * 12) + unidadesNum;
 
     const { error: updateError } = await db
       .from('estoque')
       .update({ quantidade: novaQuantidade })
       .eq('id', idProduto);
 
-    if (updateError) throw updateError;
+    if (updateError) throw new Error(`Erro ao atualizar estoque: ${updateError.message}`);
 
     const dataManaus = obterDataManaus();
     const { error: insertError } = await db
@@ -404,7 +503,7 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
         }
       ]);
 
-    if (insertError) throw insertError;
+    if (insertError) throw new Error(`Erro ao registrar movimentação: ${insertError.message}`);
 
     const categoriaAtual = document.getElementById('categoria')?.value;
     let categoriaProduto = null;
@@ -418,9 +517,7 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
 
     if (window.innerWidth > 768) {
       const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
-      if (quantidadeCell) {
-        quantidadeCell.textContent = novaQuantidade;
-      }
+      if (quantidadeCell) quantidadeCell.textContent = novaQuantidade;
     }
 
     const gradesInput = document.getElementById(`grades-${idProduto}`);
@@ -429,8 +526,8 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
     if (unidadesInput) unidadesInput.value = '';
 
     const mostrarGrades = categoriaAtual === "1 - Cervejas LITRÃO";
-    const mensagemGrades = mostrarGrades && grades > 0 ? `${grades} grades + ` : '';
-    alert(`Estoque e movimentação atualizados com sucesso. Total: ${novaQuantidade} unidades (${mensagemGrades}${unidades} unidades)`);
+    const mensagemGrades = mostrarGrades && gradesNum > 0 ? `${gradesNum} grades + ` : '';
+    mostrarMensagem(`Estoque atualizado com sucesso. Total: ${novaQuantidade} unidades (${mensagemGrades}${unidadesNum} unidades)`, 'success');
 
     if (categoriaAtual && categoriaAtual !== '' && categoriaAtual !== 'Favoritos' && categoriaProduto === categoriaAtual) {
       await carregarProdutosPorCategoria(categoriaAtual);
@@ -439,29 +536,17 @@ async function atualizarEstoque(idProduto, grades, unidades, descricao) {
     }
   } catch (error) {
     console.error('Erro ao atualizar estoque:', error);
-    alert('Erro ao atualizar estoque: ' + error.message);
+    mostrarMensagem('Falha ao atualizar o estoque. Tente novamente.');
   }
 }
 
+// Adicionar estoque
 async function adicionarEstoque(idProduto, grades, unidades, descricao) {
   try {
-    grades = parseInt(grades) || 0;
-    unidades = parseInt(unidades) || 0;
+    const gradesNum = parseInt(grades) || 0;
+    const unidadesNum = parseInt(unidades) || 0;
 
-    if (grades === 0 && unidades === 0) {
-      alert('Por favor, informe pelo menos uma quantidade (grades ou unidades).');
-      return;
-    }
-
-    if (!idProduto || unidades < 0) {
-      throw new Error('Quantidade de unidades inválida, ou ID do produto não fornecido');
-    }
-    if (grades < 0) {
-      throw new Error('Quantidade de grades inválida');
-    }
-    if (!descricao.trim()) {
-      throw new Error('Descrição é obrigatória');
-    }
+    if (!validarInputs(gradesNum, unidadesNum)) return;
 
     const { data: produto, error: fetchError } = await db
       .from('estoque')
@@ -469,12 +554,10 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
       .eq('id', idProduto)
       .single();
 
-    if (fetchError || !produto) {
-      throw new Error('Produto não encontrado no banco de dados');
-    }
+    if (fetchError || !produto) throw new Error('Produto não encontrado.');
 
     const quantidadeAtual = produto.quantidade || 0;
-    const quantidadeAdicional = (grades * 12) + unidades;
+    const quantidadeAdicional = (gradesNum * 12) + unidadesNum;
     const novaQuantidade = quantidadeAtual + quantidadeAdicional;
 
     const { error: updateError } = await db
@@ -482,7 +565,7 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
       .update({ quantidade: novaQuantidade })
       .eq('id', idProduto);
 
-    if (updateError) throw updateError;
+    if (updateError) throw new Error(`Erro ao atualizar estoque: ${updateError.message}`);
 
     const dataManaus = obterDataManaus();
     const { error: insertError } = await db
@@ -497,7 +580,7 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
         }
       ]);
 
-    if (insertError) throw insertError;
+    if (insertError) throw new Error(`Erro ao registrar movimentação: ${insertError.message}`);
 
     const categoriaAtual = document.getElementById('categoria')?.value;
     let categoriaProduto = null;
@@ -511,9 +594,7 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
 
     if (window.innerWidth > 768) {
       const quantidadeCell = document.querySelector(`#produtos-tbody tr[data-product-id="${idProduto}"] .quantidade-atual`);
-      if (quantidadeCell) {
-        quantidadeCell.textContent = novaQuantidade;
-      }
+      if (quantidadeCell) quantidadeCell.textContent = novaQuantidade;
     }
 
     const gradesInput = document.getElementById(`grades-${idProduto}`);
@@ -522,8 +603,8 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
     if (unidadesInput) unidadesInput.value = '';
 
     const mostrarGrades = categoriaAtual === "1 - Cervejas LITRÃO";
-    const mensagemGrades = mostrarGrades && grades > 0 ? `${grades} grades + ` : '';
-    alert(`Estoque atualizado com sucesso. Estoque atual: ${quantidadeAtual} unidades. Total adicionado: ${quantidadeAdicional} unidades (${mensagemGrades}${unidades} unidades). Novo total: ${novaQuantidade} unidades`);
+    const mensagemGrades = mostrarGrades && gradesNum > 0 ? `${gradesNum} grades + ` : '';
+    mostrarMensagem(`Estoque atualizado. Estoque atual: ${quantidadeAtual} unidades. Adicionado: ${quantidadeAdicional} unidades (${mensagemGrades}${unidadesNum} unidades). Novo total: ${novaQuantidade} unidades`, 'success');
 
     if (categoriaAtual && categoriaAtual !== '' && categoriaAtual !== 'Favoritos' && categoriaProduto === categoriaAtual) {
       await carregarProdutosPorCategoria(categoriaAtual);
@@ -532,14 +613,15 @@ async function adicionarEstoque(idProduto, grades, unidades, descricao) {
     }
   } catch (error) {
     console.error('Erro ao adicionar estoque:', error);
-    alert('Erro ao adicionar estoque: ' + error.message);
+    mostrarMensagem('Falha ao adicionar ao estoque. Tente novamente.');
   }
 }
 
+// Carregar comparação de um dia
 async function carregarComparacao() {
   const dataComparacao = document.getElementById('data-comparacao').value;
   if (!dataComparacao) {
-    alert('Selecione uma data para comparação');
+    mostrarMensagem('Selecione uma data para comparação.');
     return;
   }
 
@@ -551,11 +633,11 @@ async function carregarComparacao() {
 
     const { data: movimentacoes, error } = await db
       .from('movimentacoes_estoque')
-      .select('id_produto, quantidade, tipo_movimentacao, descricao, created_at')
+      .select('id_produto,quantidade,tipo_movimentacao,descricao,created_at')
       .gte('created_at', dataInicio)
       .lte('created_at', dataFim);
 
-    if (error) throw error;
+    if (error) throw new Error(`Erro ao carregar movimentações: ${error.message}`);
 
     let html = '<h3>Resultados da Comparação</h3>';
     if (movimentacoes.length === 0) {
@@ -592,10 +674,11 @@ async function carregarComparacao() {
   }
 }
 
+// Carregar comparação de três dias
 async function carregarComparacaoTresDias() {
   const dataFinal = document.getElementById('data-comparacao-tres-dias').value;
   if (!dataFinal) {
-    alert('Selecione uma data final para comparação');
+    mostrarMensagem('Selecione uma data final para comparação.');
     return;
   }
 
@@ -614,17 +697,17 @@ async function carregarComparacaoTresDias() {
 
     const { data: produtos, error: produtosError } = await db
       .from('estoque')
-      .select('id, produto, categoria, quantidade');
+      .select('id,produto,categoria,quantidade');
 
-    if (produtosError) throw produtosError;
+    if (produtosError) throw new Error(`Erro ao carregar produtos: ${produtosError.message}`);
 
     const { data: movimentacoes, error: movError } = await db
       .from('movimentacoes_estoque')
-      .select('id_produto, quantidade, created_at')
+      .select('id_produto,quantidade,created_at')
       .gte('created_at', `${dataDia3}T00:00:00`)
       .lte('created_at', `${dataDia1}T23:59:59`);
 
-    if (movError) throw movError;
+    if (movError) throw new Error(`Erro ao carregar movimentações: ${movError.message}`);
 
     const estoquePorDia = {};
     produtos.forEach(prod => {
@@ -641,13 +724,9 @@ async function carregarComparacaoTresDias() {
       const movDate = new Date(mov.created_at).toISOString().split('T')[0];
       const prodId = mov.id_produto;
       if (estoquePorDia[prodId]) {
-        if (movDate === dataDia3) {
-          estoquePorDia[prodId].quantidadeDia3 = mov.quantidade;
-        } else if (movDate === dataDia2) {
-          estoquePorDia[prodId].quantidadeDia2 = mov.quantidade;
-        } else if (movDate === dataDia1) {
-          estoquePorDia[prodId].quantidadeDia1 = mov.quantidade;
-        }
+        if (movDate === dataDia3) estoquePorDia[prodId].quantidadeDia3 = mov.quantidade;
+        else if (movDate === dataDia2) estoquePorDia[prodId].quantidadeDia2 = mov.quantidade;
+        else if (movDate === dataDia1) estoquePorDia[prodId].quantidadeDia1 = mov.quantidade;
       }
     });
 
@@ -671,9 +750,7 @@ async function carregarComparacaoTresDias() {
 
     const produtosPorCategoria = {};
     Object.values(estoquePorDia).forEach(prod => {
-      if (!produtosPorCategoria[prod.categoria]) {
-        produtosPorCategoria[prod.categoria] = [];
-      }
+      if (!produtosPorCategoria[prod.categoria]) produtosPorCategoria[prod.categoria] = [];
       produtosPorCategoria[prod.categoria].push(prod);
     });
 
@@ -715,6 +792,7 @@ async function carregarComparacaoTresDias() {
   }
 }
 
+// Debounce para redimensionamento
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -727,6 +805,7 @@ function debounce(func, wait) {
   };
 }
 
+// Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const hojeManaus = formatarDataLocal(obterDataManaus());
@@ -734,17 +813,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dataComparacao = document.getElementById('data-comparacao');
     const dataComparacaoTresDias = document.getElementById('data-comparacao-tres-dias');
 
-    if (dataRegistro) {
-      dataRegistro.value = hojeManaus;
-    }
-
-    if (dataComparacao) {
-      dataComparacao.value = hojeManaus;
-    }
-
-    if (dataComparacaoTresDias) {
-      dataComparacaoTresDias.value = hojeManaus;
-    }
+    if (dataRegistro) dataRegistro.value = hojeManaus;
+    if (dataComparacao) dataComparacao.value = hojeManaus;
+    if (dataComparacaoTresDias) dataComparacaoTresDias.value = hojeManaus;
 
     await carregarDadosIniciais();
 
@@ -754,14 +825,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const debouncedCarregarProdutos = debounce(async () => {
       const categoria = document.getElementById('categoria').value;
-      if (categoria) {
-        await carregarProdutosPorCategoria(categoria);
-      }
+      if (categoria) await carregarProdutosPorCategoria(categoria);
     }, 300);
 
     window.addEventListener('resize', debouncedCarregarProdutos);
   } catch (error) {
     console.error("Erro na inicialização:", error);
-    alert('Erro na inicialização: ' + error.message);
+    mostrarMensagem('Erro ao inicializar o sistema. Tente recarregar a página.');
   }
 });
