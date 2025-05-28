@@ -687,10 +687,8 @@ async function carregarComparacaoTresDias() {
 
     const dataFinalDate = new Date(dataFinal);
     const dataDia2Date = new Date(dataFinalDate);
-    dataDia2Date.setDate(dataFinalDate.getDate() - 1);
     const dataDia3Date = new Date(dataFinalDate);
-    dataDia3Date.setDate(dataFinalDate.getDate() - 2);
-
+    
     const dataDia3 = dataDia3Date.toISOString().split('T')[0];
     const dataDia2 = dataDia2Date.toISOString().split('T')[0];
     const dataDia1 = dataFinal;
